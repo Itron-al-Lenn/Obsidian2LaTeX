@@ -1,5 +1,7 @@
 import os
 import shutil
+import subprocess
+import tempfile
 import time
 
 
@@ -19,20 +21,32 @@ def convert_MD2TeX(in_path, name):
 
 
 def bake_TeX(name):
-    output_path = ".pdf/"
+    try:
+        # Create a temporary directory and get its path
+        temp_dir = tempfile.mkdtemp()
 
-    os.chdir("output/")
+        # Copy the generated .tex file in the temporary directory.
+        shutil.copy(
+            "output/.TeX/" + name + ".tex",
+            temp_dir + "/" + name + ".tex",
+        )
 
-    shutil.copy(
-        ".TeX/" + name + ".tex",
-        name + ".tex",
-    )
+        # Run pdflatex with the file in the temporary directory
+        # and make sure that pdflatex is finished before the program continuous
+        subprocess.check_call(["pdflatex", temp_dir + "/" + name + ".tex"], cwd=temp_dir)
+        time.sleep(1)
 
-    os.system("pdflatex " + name + ".tex")
+        # Create the output directory for the .pdf if it doesn't exists
 
-    time.sleep(1)
+        if not os.path.exists("output/.pdf/"):
+            os.mkdir("output/.pdf/")
 
-    if not os.path.exists(output_path):
-        os.mkdir(output_path)
+        # Move the new .pdf file in the output/.pdf/ directory
+        shutil.move(temp_dir + "/" + name + ".pdf", "output/.pdf/" + name + ".pdf")
 
-    shutil.move(name + ".pdf", output_path + name + ".pdf")
+        # Delete the temporary folder and its contents
+        shutil.rmtree(temp_dir)
+
+        print(f"Temporary folder '{temp_dir}' has been deleted.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
