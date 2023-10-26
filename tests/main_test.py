@@ -4,57 +4,43 @@ import pytest
 
 from Obsidian2LaTeX_helper import bake_TeX, convert_MD2TeX
 
-# Define a temporary test directory for test files
-TEST_DIR = "test_files"
+
+@pytest.fixture(scope="function")
+def temporary_md_file(tmp_path):
+    # Create a temporary Markdown file for testing
+    md_path = tmp_path / "test.md"
+    with open(md_path, "w") as md_file:
+        md_file.write("# Test Markdown\n\nThis is a test.")
+    return md_path
 
 
-@pytest.fixture(scope="module")
-def setup_teardown():
-    # Setup: Create a temporary directory for testing
-    os.makedirs(TEST_DIR)
+def test_convert_MD2TeX(temporary_md_file, tmp_path):
+    name = "test"
+    in_path = temporary_md_file
 
-    yield
+    convert_MD2TeX(in_path, name, str(tmp_path))
 
-    # Teardown: Remove the temporary directory and its contents
-    if os.path.exists(TEST_DIR):
-        for filename in os.listdir(TEST_DIR):
-            file_path = os.path.join(TEST_DIR, filename)
-            if os.path.isfile(file_path):
-                os.remove(file_path)
-        os.rmdir(TEST_DIR)
+    # Check if the .tex file was created
+    assert in_path.is_file()
+    out_path = tmp_path / ".TeX" / (name + ".tex")
+    assert out_path.is_file()
 
 
-def test_convert_MD2TeX(setup_teardown):
-    # Test the convert_MD2TeX function
+def test_bake_TeX(tmp_path):
+    name = "test"
 
-    # Create a test Markdown file
-    test_md_content = "This is a test markdown content."
-    test_md_file = os.path.join(TEST_DIR, "test.md")
-    with open(test_md_file, "w") as md_file:
-        md_file.write(test_md_content)
+    # Create a temporary .tex file for testing
+    temp_dir = tmp_path / ".TeX"
+    os.makedirs(temp_dir)
+    with open(temp_dir / (name + ".tex"), "w") as tex_file:
+        tex_file.write("\\documentclass{article}\n\\begin{document}\nTest\n\\end{document}")
 
-    # Call the function to convert Markdown to LaTeX
-    convert_MD2TeX(test_md_file, "test")
+    # Run the bake_TeX function
+    bake_TeX(name, tmp_path)
 
-    # Check if the LaTeX file is created
-    assert os.path.isfile(os.path.join(TEST_DIR, "test.tex"))
-
-
-def test_bake_TeX(setup_teardown):
-    # Test the bake_TeX function
-
-    # Create a test LaTeX file
-    test_tex_content = r"\documentclass{article}\begin{document}This is a test LaTeX content.\end{document}"
-    test_tex_file = os.path.join(TEST_DIR, "test.tex")
-    with open(test_tex_file, "w") as tex_file:
-        tex_file.write(test_tex_content)
-
-    # Call the function to bake LaTeX into PDF
-    bake_TeX("test")
-
-    # Check if the PDF file is created
-    assert os.path.isfile(os.path.join(TEST_DIR, "test.pdf"))
+    # Check if the .pdf file was created in the output directory
+    output_pdf_path = tmp_path / ".pdf" / (name + ".pdf")
+    assert output_pdf_path.is_file()
 
 
-if __name__ == "__main__":
-    pytest.main()
+# Add more test cases as needed
