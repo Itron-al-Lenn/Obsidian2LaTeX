@@ -1,1 +1,1 @@
-FROM mcr.microsoft.com/vscode/devcontainers/python:0-${VARIANT}
+FROM ghcr.io/itron-al-lenn/python-with-latex
