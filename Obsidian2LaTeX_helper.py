@@ -1,5 +1,6 @@
 import os
 import shutil
+import time
 
 
 def convert_MD2TeX(in_path, name):
@@ -18,16 +19,18 @@ def convert_MD2TeX(in_path, name):
 
 
 def bake_TeX(name):
-    output_path = "pdf/"
+    output_path = ".pdf/"
 
     os.chdir("output/")
 
     shutil.copy(
-        "C:/Users/jolle/Desktop/Libary/Python/Obsidian2LaTeX/output/.TeX/" + name + ".tex",
-        "C:/Users/jolle/Desktop/Libary/Python/Obsidian2LaTeX/output/" + name + ".tex",
+        ".TeX/" + name + ".tex",
+        name + ".tex",
     )
 
     os.system("pdflatex " + name + ".tex")
+
+    time.sleep(1)
 
     if not os.path.exists(output_path):
         os.mkdir(output_path)
