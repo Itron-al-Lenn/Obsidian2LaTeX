@@ -73,10 +73,17 @@ def convert(text):
     return output
 
 
-def convert_MD2TeX(in_path, name, Output_dir="output"):
+def convert_MD2TeX(in_path, name, output_dir="output", template_dir="Template/standard_template.tex", author=""):
     # Creates a pathlib Path out of the output string input.
-    output_dir = Path(Output_dir)
+    output_dir = Path(output_dir)
     output_path = output_dir / ".TeX"
+
+    # Creates a pathlib Path out of the template string input.
+    template_dir = Path(template_dir)
+
+    # Gets the content of the template file and stores it in the template variable
+    with open(template_dir) as template:
+        template_text = template.read()
 
     # Gets the content of the input MD file and stores it in the MDtext variable
     with open(in_path) as MD:
@@ -92,14 +99,17 @@ def convert_MD2TeX(in_path, name, Output_dir="output"):
     # Creates a .tex file with the content we created
     file_path = output_path / (name + ".tex")
 
+    # Replaces the content of the template file with the content we created
+    text = template_text.replace("CONTENT", text).replace("TITLE", name).replace("AUTHOR", author)
+
     # Writes the content to the .tex file
     with open(file_path, "w") as file:
         file.write(text)
 
 
-def bake_TeX(name, Output_dir="output"):
+def bake_TeX(name, output_dir="output"):
     # Creates a pathlib Path out of the output string input
-    output_dir = Path(Output_dir)
+    output_dir = Path(output_dir)
     try:
         # Create a temporary directory and get its path
         temp_dir = Path(tempfile.mkdtemp())
