@@ -9,4 +9,4 @@ def main(mddir, name):
 
 
 if __name__ == "__main__":
-    main("test.md", "test")
+    main()
