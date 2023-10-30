@@ -6,29 +6,105 @@ import time
 from pathlib import Path
 
 
+# We define a list subclass called lines that has a method to convert the list to a string
+# It also has a method to get an boolean value if the specific item in the list starts with "$$"
+class Lines(list):
+    def __str__(self):
+        return "\n".join(self)
+
+    def is_math(self, index):
+        return self[index].startswith("$$") and not (
+            self[index + 1].startswith("\\begin{align}") or self[index - 1].startswith("\\end{align}")
+        )
+
+    def is_header(self, index):
+        return self[index].startswith("#") and not self[index].startswith("##")
+
+    def is_subheader(self, index):
+        return self[index].startswith("##")
+
+    def is_align(self, index):
+        return self[index].startswith("$$") and (
+            self[index + 1].startswith("\\begin{align}") or self[index - 1].startswith("\\end{align}")
+        )
+
+
+def convert(text):
+    # We create a list of the lines in the text
+    lines = Lines(text.split("\n"))
+
+    # We loop through the lines and check if the line is a header
+    for i in range(len(lines)):
+        if lines.is_header(i):
+            # If the line is a header we replace the "#" with the corresponding "\section{}"
+            lines[i] = "\\section{" + lines[i].replace("#", "") + "}"
+
+    # We loop through the lines and check if the line is a subheader
+    for i in range(len(lines)):
+        if lines.is_subheader(i):
+            # If the line is a subheader we replace the "##" with the corresponding "\subsection{}"
+            lines[i] = "\\subsection{" + lines[i].replace("##", "") + "}"
+
+    # We loop through the lines and check if the line is a math environment
+    last_was_end = True
+    for i in range(len(lines)):
+        if lines.is_math(i):
+            # If the line is a math environment we replace the "$$"
+            # with the corresponding "\begin{align}" and "\end{align}"
+            if last_was_end:
+                lines[i] = "\\[" + lines[i].replace("$$", "")
+                last_was_end = False
+            else:
+                lines[i] = lines[i].replace("$$", "") + "\\]"
+                last_was_end = True
+
+    # We loop through the lines and check if the line is an align environment
+    for i in range(len(lines)):
+        if lines.is_align(i):
+            # If the line is an align environment we replace the "$$"
+            # with the corresponding an empty line
+            lines[i] = ""
+
+    # We join the items of lines to a string that will be returned
+    output = ""
+    output += str(lines) + "\n"
+
+    # We return the output string
+    return output
+
+
 def convert_MD2TeX(in_path, name, Output_dir="output"):
+    # Creates a pathlib Path out of the output string input.
     output_dir = Path(Output_dir)
     output_path = output_dir / ".TeX"
 
+    # Gets the content of the input MD file and stores it in the MDtext variable
     with open(in_path) as MD:
         MDtext = MD.read()
 
+    # Creates the output path if it doesn't exists
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 
+    # Runs the content from the MD file through the convert function to convert the syntax to a .tex compatible one
+    text = convert(MDtext)
+
+    # Creates a .tex file with the content we created
     file_path = output_path / (name + ".tex")
 
+    # Writes the content to the .tex file
     with open(file_path, "w") as file:
-        file.write(MDtext)
+        file.write(text)
 
 
 def bake_TeX(name, Output_dir="output"):
+    # Creates a pathlib Path out of the output string input
     output_dir = Path(Output_dir)
     try:
         # Create a temporary directory and get its path
         temp_dir = Path(tempfile.mkdtemp())
 
-        # Copy the generated .tex file in the temporary directory.
+        # Copy the generated .tex file in the temporary directory
         shutil.copy(
             output_dir / ".TeX/" / (name + ".tex"),
             temp_dir / (name + ".tex"),
@@ -40,7 +116,6 @@ def bake_TeX(name, Output_dir="output"):
         time.sleep(1)
 
         # Create the output directory for the .pdf if it doesn't exists
-
         if not os.path.exists(output_dir / ".pdf/"):
             os.mkdir(output_dir / ".pdf/")
 
