@@ -37,13 +37,13 @@ def convert(text):
     for i in range(len(lines)):
         if lines.is_header(i):
             # If the line is a header we replace the "#" with the corresponding "\section{}"
-            lines[i] = "\\section{" + lines[i].replace("#", "") + "}"
+            lines[i] = "\\section{" + lines[i].replace("# ", "") + "}"
 
     # We loop through the lines and check if the line is a subheader
     for i in range(len(lines)):
         if lines.is_subheader(i):
             # If the line is a subheader we replace the "##" with the corresponding "\subsection{}"
-            lines[i] = "\\subsection{" + lines[i].replace("##", "") + "}"
+            lines[i] = "\\subsection{" + lines[i].replace("## ", "") + "}"
 
     # We loop through the lines and check if the line is a math environment
     last_was_end = True
@@ -68,6 +68,21 @@ def convert(text):
     # We join the items of lines to a string that will be returned
     output = ""
     output += str(lines) + "\n"
+
+    # We get all ** in the text and replace them either with \\textbf{ or } depending on if it is the first or second
+    while "**" in output:
+        output = output.replace("**", "\\textbf{", 1)
+        output = output.replace("**", "}", 1)
+
+    # We get all * in the text and replace them either with \\textit{ or } depending on if it is the first or second
+    while "*" in output:
+        output = output.replace("*", "\\textit{", 1)
+        output = output.replace("*", "}", 1)
+
+    # We get all _ in the text and replace them either with \\underline{ or } depending on if it is the first or second
+    while "_" in output:
+        output = output.replace("_", "\\underline{", 1)
+        output = output.replace("_", "}", 1)
 
     # We return the output string
     return output
