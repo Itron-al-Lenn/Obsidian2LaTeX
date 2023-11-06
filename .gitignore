@@ -2,5 +2,3 @@
 __pycache__
 .coverage
 output/
-test.md
-testmain.py
