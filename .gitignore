@@ -1,5 +1,4 @@
 .venv
 __pycache__
 .coverage
-output
-test.md
+output/

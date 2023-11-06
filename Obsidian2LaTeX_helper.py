@@ -37,13 +37,13 @@ def convert(text):
     for i in range(len(lines)):
         if lines.is_header(i):
             # If the line is a header we replace the "#" with the corresponding "\section{}"
-            lines[i] = "\\section{" + lines[i].replace("#", "") + "}"
+            lines[i] = "\\section{" + lines[i].replace("# ", "") + "}"
 
     # We loop through the lines and check if the line is a subheader
     for i in range(len(lines)):
         if lines.is_subheader(i):
             # If the line is a subheader we replace the "##" with the corresponding "\subsection{}"
-            lines[i] = "\\subsection{" + lines[i].replace("##", "") + "}"
+            lines[i] = "\\subsection{" + lines[i].replace("## ", "") + "}"
 
     # We loop through the lines and check if the line is a math environment
     last_was_end = True
@@ -69,14 +69,36 @@ def convert(text):
     output = ""
     output += str(lines) + "\n"
 
+    # We get all ** in the text and replace them either with \\textbf{ or } depending on if it is the first or second
+    while "**" in output:
+        output = output.replace("**", "\\textbf{", 1)
+        output = output.replace("**", "}", 1)
+
+    # We get all * in the text and replace them either with \\textit{ or } depending on if it is the first or second
+    while "*" in output:
+        output = output.replace("*", "\\textit{", 1)
+        output = output.replace("*", "}", 1)
+
+    # We get all _ in the text and replace them either with \\underline{ or } depending on if it is the first or second
+    while "_" in output:
+        output = output.replace("_", "\\underline{", 1)
+        output = output.replace("_", "}", 1)
+
     # We return the output string
     return output
 
 
-def convert_MD2TeX(in_path, name, Output_dir="output"):
+def convert_MD2TeX(in_path, name, output_dir="output", template_dir="Template/standard_template.tex", author=""):
     # Creates a pathlib Path out of the output string input.
-    output_dir = Path(Output_dir)
+    output_dir = Path(output_dir)
     output_path = output_dir / ".TeX"
+
+    # Creates a pathlib Path out of the template string input.
+    template_dir = Path(template_dir)
+
+    # Gets the content of the template file and stores it in the template variable
+    with open(template_dir) as template:
+        template_text = template.read()
 
     # Gets the content of the input MD file and stores it in the MDtext variable
     with open(in_path) as MD:
@@ -92,14 +114,17 @@ def convert_MD2TeX(in_path, name, Output_dir="output"):
     # Creates a .tex file with the content we created
     file_path = output_path / (name + ".tex")
 
+    # Replaces the content of the template file with the content we created
+    text = template_text.replace("CONTENT", text).replace("TITLE", name).replace("AUTHOR", author)
+
     # Writes the content to the .tex file
     with open(file_path, "w") as file:
         file.write(text)
 
 
-def bake_TeX(name, Output_dir="output"):
+def bake_TeX(name, output_dir="output"):
     # Creates a pathlib Path out of the output string input
-    output_dir = Path(Output_dir)
+    output_dir = Path(output_dir)
     try:
         # Create a temporary directory and get its path
         temp_dir = Path(tempfile.mkdtemp())
