@@ -34,36 +34,65 @@ class MainWindow(QMainWindow):
         self.textbox_name = QLineEdit(placeholderText=config["standard_variables"]["file_name"])
         self.textbox_name.textChanged.connect(self.set_name)
 
-        self.textbox_output_dir = QLineEdit(placeholderText=config["standard_paths"]["out_path"])
-        self.textbox_output_dir.textChanged.connect(self.set_output_dir)
+        self.textbox_out_path = QLineEdit(placeholderText=config["standard_paths"]["out_path"])
+        self.textbox_out_path.textChanged.connect(self.set_out_path)
 
-        self.textbox_template_dir = QLineEdit(placeholderText=config["standard_paths"]["template_path"])
-        self.textbox_template_dir.textChanged.connect(self.set_template_dir)
+        self.textbox_template_path = QLineEdit(placeholderText=config["standard_paths"]["template_path"])
+        self.textbox_template_path.textChanged.connect(self.set_template_path)
 
         self.textbox_author = QLineEdit(placeholderText=config["standard_variables"]["author"])
         self.textbox_author.textChanged.connect(self.set_author)
 
         # Create the labels for the input fields
-        self.label_in_path = QLabel("Path to the input file")
-        self.label_name = QLabel("Name of the output file")
-        self.label_output_dir = QLabel("Path to the output directory")
-        self.label_template_dir = QLabel("Path to the template file")
+        label_in_path = QLabel("Path to the input file")
+        label_name = QLabel("Name of the output file")
+        label_out_path = QLabel("Path to the output directory")
+        label_template_path = QLabel("Path to the template file")
         self.label_author = QLabel("Author of the document")
+
+        # Creates BoxLayouts which combine the label and the input field
+        in_path = QVBoxLayout()
+        in_path.addWidget(label_in_path)
+        in_path.addWidget(self.textbox_in_path)
+
+        name = QVBoxLayout()
+        name.addWidget(label_name)
+        name.addWidget(self.textbox_name)
+
+        out_path = QVBoxLayout()
+        out_path.addWidget(label_out_path)
+        out_path.addWidget(self.textbox_out_path)
+
+        template_path = QVBoxLayout()
+        template_path.addWidget(label_template_path)
+        template_path.addWidget(self.textbox_template_path)
+
+        author = QVBoxLayout()
+        author.addWidget(self.label_author)
+        author.addWidget(self.textbox_author)
+
+        # Check if the standard template file contains AUTHOR
+        # If it does, enable the author input field
+        with open(config["standard_paths"]["template_path"]) as template_file:
+            template = template_file.read()
+            if "AUTHOR" in template:
+                self.textbox_author.show()
+                self.label_author.show()
+                print("show")
+            else:
+                self.textbox_author.hide()
+                self.label_author.hide()
+                print("hide")
 
         # Create the layout
         layout = QVBoxLayout()
 
-        # Add the labels and the input fields to the layout
-        layout.addWidget(self.label_in_path)
-        layout.addWidget(self.textbox_in_path)
-        layout.addWidget(self.label_name)
-        layout.addWidget(self.textbox_name)
-        layout.addWidget(self.label_output_dir)
-        layout.addWidget(self.textbox_output_dir)
-        layout.addWidget(self.label_template_dir)
-        layout.addWidget(self.textbox_template_dir)
-        layout.addWidget(self.label_author)
-        layout.addWidget(self.textbox_author)
+        # Add the elements to the layout
+        layout.addLayout(name)
+        layout.addLayout(in_path)
+        layout.addLayout(out_path)
+        layout.addLayout(template_path)
+        layout.addLayout(author)
         layout.addWidget(self.button)
 
         # Create the container widget and set the layout
@@ -100,27 +129,39 @@ class MainWindow(QMainWindow):
         else:
             self.button.setEnabled(True)
 
-    def set_output_dir(self, text):
+    def set_out_path(self, text):
         if text == "":
-            str_input["output_dir"] = config["standard_paths"]["out_path"]
+            str_input["out_path"] = config["standard_paths"]["out_path"]
         else:
-            str_input["output_dir"] = text
+            str_input["out_path"] = text
 
         if "" in str_input.values():
             self.button.setEnabled(False)
         else:
             self.button.setEnabled(True)
 
-    def set_template_dir(self, text):
+    def set_template_path(self, text):
         if text == "":
-            str_input["template_dir"] = config["standard_paths"]["template_path"]
+            str_input["template_path"] = config["standard_paths"]["template_path"]
         else:
-            str_input["template_dir"] = text
+            str_input["template_path"] = text
 
         if "" in str_input.values():
             self.button.setEnabled(False)
         else:
             self.button.setEnabled(True)
+
+        # Check if the template file contains AUTHOR
+        # If it does, enable the author input field
+        with open(str_input["template_path"]) as template_file:
+            template = template_file.read()
+            if "AUTHOR" in template:
+                self.textbox_author.show()
+                self.label_author.show()
+            else:
+                self.textbox_author.hide()
+                self.label_author.hide()
+                print("hide")
 
     def set_author(self, text):
         if text == "":
@@ -138,11 +179,11 @@ def main():
     convert_MD2TeX(
         in_path=str_input["in_path"],
         name=str_input["name"],
-        output_dir=str_input["output_dir"],
-        template_dir=str_input["template_dir"],
+        out_path=str_input["out_path"],
+        template_path=str_input["template_path"],
         author=str_input["author"],
     )
-    bake_TeX(name=str_input["name"], output_dir=str_input["output_dir"])
+    bake_TeX(name=str_input["name"], out_path=str_input["out_path"])
 
 
 if __name__ == "__main__":
@@ -160,8 +201,8 @@ if __name__ == "__main__":
     str_input = {
         "in_path": config["standard_paths"]["in_path"],
         "name": config["standard_variables"]["file_name"],
-        "output_dir": config["standard_paths"]["out_path"],
-        "template_dir": config["standard_paths"]["template_path"],
+        "out_path": config["standard_paths"]["out_path"],
+        "template_path": config["standard_paths"]["template_path"],
         "author": config["standard_variables"]["author"],
     }
 
