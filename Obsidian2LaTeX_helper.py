@@ -59,11 +59,16 @@ def convert(text):
                 last_was_end = True
 
     # We loop through the lines and check if the line is an align environment
+    del_index = []
     for i in range(len(lines)):
         if lines.is_align(i):
-            # If the line is an align environment we replace the "$$"
-            # with the corresponding an empty line
-            lines[i] = ""
+            # If the line is an align environment we add their index to an list
+            del_index.append(i)
+
+    # We loop through the list of indexes and delete the corresponding lines
+    del_index.reverse()
+    for i in del_index:
+        del lines[i]
 
     # We join the items of lines to a string that will be returned
     output = ""
@@ -74,21 +79,17 @@ def convert(text):
         output = output.replace("**", "\\textbf{", 1)
         output = output.replace("**", "}", 1)
 
-    # We get all * in the text and replace them either with \\textit{ or } depending on if it is the first or second
-    while "*" in output:
-        output = output.replace("*", "\\textit{", 1)
-        output = output.replace("*", "}", 1)
+    # Replaces \pu with the LaTeX compatible \si
+    output = output.replace("\\pu", "\\si")
 
-    # We get all _ in the text and replace them either with \\underline{ or } depending on if it is the first or second
-    while "_" in output:
-        output = output.replace("_", "\\underline{", 1)
-        output = output.replace("_", "}", 1)
+    # Replace {align} with {align*}
+    output = output.replace("{align}", "{align*}")
 
     # We return the output string
     return output
 
 
-def convert_MD2TeX(in_path, name, output_dir="output", template_dir="Template/standard_template.tex", author=""):
+def convert_MD2TeX(in_path, name, output_dir, template_dir, author):
     # Creates a pathlib Path out of the output string input.
     output_dir = Path(output_dir)
     output_path = output_dir / ".TeX"

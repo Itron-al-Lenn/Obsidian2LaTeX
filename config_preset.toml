@@ -1,0 +1,8 @@
+[standard_paths]
+in_path = ""
+out_path = "output"
+template_path = "Template/standard_template.tex"
+
+[standard_variables]
+author = ""
+file_name = ""
