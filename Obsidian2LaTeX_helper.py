@@ -89,16 +89,16 @@ def convert(text):
     return output
 
 
-def convert_MD2TeX(in_path, name, output_dir, template_dir, author):
+def convert_MD2TeX(in_path, name, out_path, template_path, author):
     # Creates a pathlib Path out of the output string input.
-    output_dir = Path(output_dir)
-    output_path = output_dir / ".TeX"
+    out_path = Path(out_path)
+    output_path = out_path / ".TeX"
 
     # Creates a pathlib Path out of the template string input.
-    template_dir = Path(template_dir)
+    template_path = Path(template_path)
 
     # Gets the content of the template file and stores it in the template variable
-    with open(template_dir) as template:
+    with open(template_path) as template:
         template_text = template.read()
 
     # Gets the content of the input MD file and stores it in the MDtext variable
@@ -123,16 +123,16 @@ def convert_MD2TeX(in_path, name, output_dir, template_dir, author):
         file.write(text)
 
 
-def bake_TeX(name, output_dir="output"):
+def bake_TeX(name, out_path):
     # Creates a pathlib Path out of the output string input
-    output_dir = Path(output_dir)
+    out_path = Path(out_path)
     try:
         # Create a temporary directory and get its path
         temp_dir = Path(tempfile.mkdtemp())
 
         # Copy the generated .tex file in the temporary directory
         shutil.copy(
-            output_dir / ".TeX/" / (name + ".tex"),
+            out_path / ".TeX/" / (name + ".tex"),
             temp_dir / (name + ".tex"),
         )
 
@@ -142,11 +142,11 @@ def bake_TeX(name, output_dir="output"):
         time.sleep(1)
 
         # Create the output directory for the .pdf if it doesn't exists
-        if not os.path.exists(output_dir / ".pdf/"):
-            os.mkdir(output_dir / ".pdf/")
+        if not os.path.exists(out_path / ".pdf/"):
+            os.mkdir(out_path / ".pdf/")
 
         # Move the new .pdf file in the output/.pdf/ directory
-        shutil.move(temp_dir / (name + ".pdf"), output_dir / ".pdf" / (name + ".pdf"))
+        shutil.move(temp_dir / (name + ".pdf"), out_path / ".pdf" / (name + ".pdf"))
 
         # Delete the temporary folder and its contents
         shutil.rmtree(temp_dir)

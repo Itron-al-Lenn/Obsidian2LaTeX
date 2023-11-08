@@ -1,7 +1,7 @@
 [standard_paths]
 in_path = ""
 out_path = "output"
-template_path = "Template/standard_template.tex"
+template_path = "Template/minimal_template.tex"
 
 [standard_variables]
 author = ""
