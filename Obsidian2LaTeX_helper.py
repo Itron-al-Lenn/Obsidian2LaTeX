@@ -52,10 +52,10 @@ def convert(text):
             # If the line is a math environment we replace the "$$"
             # with the corresponding "\begin{align}" and "\end{align}"
             if last_was_end:
-                lines[i] = "\\["
+                lines[i] = "\\[" + lines[i].replace("$$", "")
                 last_was_end = False
             else:
-                lines[i] = "\\]"
+                lines[i] = lines[i].replace("$$", "") + "\\]"
                 last_was_end = True
 
     # We loop through the lines and check if the line is an align environment

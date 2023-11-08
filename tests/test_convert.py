@@ -24,7 +24,7 @@ def test_convert_math():
 
 def test_convert_align():
     obsidian_text = "# Heading\n\nSome **bold**.\n\n$$\n\\begin{align}\nx &= y \nz &= w\n\\end{align}\n$$\n\nMore text."  # noqa: E501
-    expected_latex = "\\section{Heading}\n\nSome \\textbf{bold}.\n\n\n\\begin{align}\nx &= y \nz &= w\n\\end{align}\n\n\nMore text."  # noqa: E501
+    expected_latex = "\\section{Heading}\n\nSome \\textbf{bold}.\n\n\\begin{align*}\nx &= y \nz &= w\n\\end{align*}\n\nMore text."  # noqa: E501
     converted = convert(obsidian_text)
     assert converted == expected_latex or converted == expected_latex + "\n"
 
