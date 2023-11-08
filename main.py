@@ -1,8 +1,17 @@
+import os
+
+import platformdirs
 from PySide6.QtWidgets import QApplication, QLabel, QLineEdit, QMainWindow, QPushButton, QVBoxLayout, QWidget
+from tomlkit import parse
 
 from Obsidian2LaTeX_helper import bake_TeX, convert_MD2TeX
 
-str_input = {"in_path": "", "name": "", "output_dir": "", "template_dir": "", "author": ""}
+# Add the specifications for platformdirs
+appname = "Obsidian2LaTeX"
+appauthor = "Itron al Lenn"
+
+# Get the file path for the config file
+config_dir = platformdirs.user_config_dir(appname=appname, appauthor=appauthor, ensure_exists=True)
 
 
 class MainWindow(QMainWindow):
@@ -15,22 +24,23 @@ class MainWindow(QMainWindow):
         # Create the convert button
         self.button = QPushButton("Convert")
         self.button.clicked.connect(self.convert)
-        self.button.setEnabled(False)
+        if "" in str_input.values():
+            self.button.setEnabled(False)
 
         # Create the input fields
-        self.textbox_in_path = QLineEdit()
+        self.textbox_in_path = QLineEdit(placeholderText=config["standard_paths"]["in_path"])
         self.textbox_in_path.textChanged.connect(self.set_in_path)
 
-        self.textbox_name = QLineEdit()
+        self.textbox_name = QLineEdit(placeholderText=config["standard_variables"]["file_name"])
         self.textbox_name.textChanged.connect(self.set_name)
 
-        self.textbox_output_dir = QLineEdit()
+        self.textbox_output_dir = QLineEdit(placeholderText=config["standard_paths"]["out_path"])
         self.textbox_output_dir.textChanged.connect(self.set_output_dir)
 
-        self.textbox_template_dir = QLineEdit()
+        self.textbox_template_dir = QLineEdit(placeholderText=config["standard_paths"]["template_path"])
         self.textbox_template_dir.textChanged.connect(self.set_template_dir)
 
-        self.textbox_author = QLineEdit()
+        self.textbox_author = QLineEdit(placeholderText=config["standard_variables"]["author"])
         self.textbox_author.textChanged.connect(self.set_author)
 
         # Create the labels for the input fields
@@ -69,35 +79,55 @@ class MainWindow(QMainWindow):
 
     # Define the input functions for the text fields
     def set_in_path(self, text):
-        str_input["in_path"] = text
+        if text == "":
+            str_input["in_path"] = config["standard_paths"]["in_path"]
+        else:
+            str_input["in_path"] = text
+
         if "" in str_input.values():
             self.button.setEnabled(False)
         else:
             self.button.setEnabled(True)
 
     def set_name(self, text):
-        str_input["name"] = text
+        if text == "":
+            str_input["name"] = config["standard_variables"]["file_name"]
+        else:
+            str_input["name"] = text
+
         if "" in str_input.values():
             self.button.setEnabled(False)
         else:
             self.button.setEnabled(True)
 
     def set_output_dir(self, text):
-        str_input["output_dir"] = text
+        if text == "":
+            str_input["output_dir"] = config["standard_paths"]["out_path"]
+        else:
+            str_input["output_dir"] = text
+
         if "" in str_input.values():
             self.button.setEnabled(False)
         else:
             self.button.setEnabled(True)
 
     def set_template_dir(self, text):
-        str_input["template_dir"] = text
+        if text == "":
+            str_input["template_dir"] = config["standard_paths"]["template_path"]
+        else:
+            str_input["template_dir"] = text
+
         if "" in str_input.values():
             self.button.setEnabled(False)
         else:
             self.button.setEnabled(True)
 
     def set_author(self, text):
-        str_input["author"] = text
+        if text == "":
+            str_input["author"] = config["standard_variables"]["author"]
+        else:
+            str_input["author"] = text
+
         if "" in str_input.values():
             self.button.setEnabled(False)
         else:
@@ -116,6 +146,25 @@ def main():
 
 
 if __name__ == "__main__":
+    # If no config file exists, create one and write the content of the default config file into it
+    if not os.path.exists(config_dir + "/config.toml"):
+        with open(config_dir + "/config.toml", "w") as config_file:
+            with open("config_preset.toml") as preset_config_file:
+                config_file.write(preset_config_file.read())
+
+    # Read the config file
+    with open(config_dir + "/config.toml") as config_file:
+        config = parse(config_file.read())
+
+    # Create the input dictionary
+    str_input = {
+        "in_path": config["standard_paths"]["in_path"],
+        "name": config["standard_variables"]["file_name"],
+        "output_dir": config["standard_paths"]["out_path"],
+        "template_dir": config["standard_paths"]["template_path"],
+        "author": config["standard_variables"]["author"],
+    }
+
     app = QApplication([])
 
     window = MainWindow()
