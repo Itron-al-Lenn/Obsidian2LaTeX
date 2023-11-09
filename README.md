@@ -4,7 +4,7 @@ I am a STEM student which uses obsidian.md for her lecture notes. Because I am d
 It uses the similarity of the MathJax syntax to LaTeX to convert the .md file to an .tex file and convert the .tex file to an stylish looking pdf using pdflatex.
 ## What works
 
-We currently support the following elements:
+It currently supports the following elements:
 - Math and align environment
 - All MathJax syntax that is identical to LaTeX
 - The mhchem \pu (will be converted to \si)
