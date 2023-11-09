@@ -82,6 +82,7 @@ class MainWindow(QMainWindow):
             else:
                 self.textbox_author.hide()
                 self.label_author.hide()
+                str_input["author"] = None
                 print("hide")
 
         # Create the layout
@@ -158,9 +159,11 @@ class MainWindow(QMainWindow):
             if "AUTHOR" in template:
                 self.textbox_author.show()
                 self.label_author.show()
+                str_input["author"] = config["standard_variables"]["author"]
             else:
                 self.textbox_author.hide()
                 self.label_author.hide()
+                str_input["author"] = None
                 print("hide")
 
     def set_author(self, text):

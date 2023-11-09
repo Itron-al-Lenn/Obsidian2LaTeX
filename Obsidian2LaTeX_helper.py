@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -79,6 +80,17 @@ def convert(text):
         output = output.replace("**", "\\textbf{", 1)
         output = output.replace("**", "}", 1)
 
+    # We get all * in the text and replace them either with \\textit{ or } depending on if it is the first or second
+    while "*" in output:
+        output = output.replace("*", "\\textit{", 1)
+        output = output.replace("*", "}", 1)
+
+    # We get all _ in the text and replace them either with \\textit{ or } depending on if it is the first or second
+    # unless it is followed by a {
+    while "_ " in output:
+        output = re.sub(r"_([^{])", r"\\textit{\1", output, 1)
+        output = re.sub("_ ", "} ", output, 1)
+
     # Replaces \pu with the LaTeX compatible \si
     output = output.replace("\\pu", "\\si")
 
@@ -116,7 +128,10 @@ def convert_MD2TeX(in_path, name, out_path, template_path, author):
     file_path = output_path / (name + ".tex")
 
     # Replaces the content of the template file with the content we created
-    text = template_text.replace("CONTENT", text).replace("TITLE", name).replace("AUTHOR", author)
+    if author is None:
+        text = template_text.replace("CONTENT", text).replace("TITLE", name)
+    else:
+        text = template_text.replace("CONTENT", text).replace("TITLE", name).replace("AUTHOR", author)
 
     # Writes the content to the .tex file
     with open(file_path, "w") as file:

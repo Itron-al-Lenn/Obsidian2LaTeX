@@ -34,3 +34,10 @@ def test_convert_bold():
     expected_latex = "\\section{Heading}\n\nSome \\textbf{bold} text."
     converted = convert(obsidian_text)
     assert converted == expected_latex or converted == expected_latex + "\n"
+
+
+def test_convert_italic():
+    obsidian_text = "# Heading\n\nSome *italic* text."
+    expected_latex = "\\section{Heading}\n\nSome \\textit{italic} text."
+    converted = convert(obsidian_text)
+    assert converted == expected_latex or converted == expected_latex + "\n"
