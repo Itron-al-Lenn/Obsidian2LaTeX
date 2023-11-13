@@ -2,6 +2,7 @@ import os
 
 import platformdirs
 import tomlkit
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -48,6 +49,15 @@ class MainWindow(QMainWindow):
         # Set the name of the main window and its size
         self.setWindowTitle("Obsidian2LaTeX")
         self.resize(500, 300)
+
+        # Addes menu bar
+        menu = self.menuBar()
+
+        # Addes the settings button to the menu bar
+        self.settings_button = QAction("Settings", self)
+        self.settings_button.triggered.connect(self.open_settings_window)
+
+        menu.addAction(self.settings_button)
 
         # Create the convert button
         self.button = QPushButton("Convert")
@@ -120,10 +130,6 @@ class MainWindow(QMainWindow):
         author.addWidget(self.label_author)
         author.addWidget(self.lineedit_author)
 
-        # Creates a button to open the settings window
-        self.settings_button = QPushButton("Settings")
-        self.settings_button.clicked.connect(self.open_settings_window)
-
         # Check if the standard template file contains AUTHOR
         # If it does, enable the author input field
         with open(config["standard_paths"]["template_path"]) as template_file:
@@ -150,7 +156,6 @@ class MainWindow(QMainWindow):
         layout.addLayout(out_path)
         layout.addLayout(template_path)
         layout.addWidget(self.button)
-        layout.addWidget(self.settings_button)
 
         # Create the container widget and set the layout
         container = QWidget()
