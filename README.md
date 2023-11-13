@@ -17,7 +17,7 @@ It currently supports the following elements:
 
 These things don't work right now. Either because of some syntax conflict or just because I didn't have time (or saw the need) to add them by now.
 
-- Exscalidraw
+- Excalidraw
 - Tables
 - All math environments that are mutually exclusive to align or \[ (could probably easily be added by reusing the code for align)
 
