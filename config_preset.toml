@@ -2,7 +2,13 @@
 in_path = ""
 out_path = "output"
 template_path = "Template/minimal_template.tex"
+attachment_path = ""
 
 [standard_variables]
 author = ""
 file_name = ""
+date = ""
+
+[behaviour]
+override_with_metadata = true
+use_current_date = true
