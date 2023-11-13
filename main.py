@@ -1,11 +1,17 @@
 import os
+import re
+from pathlib import Path
 
 import platformdirs
 import tomlkit
+from PySide6.QtCore import QDate
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QApplication,
+    QCheckBox,
+    QDateEdit,
     QFileDialog,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -31,6 +37,8 @@ config_key = {
     "template_path": "standard_paths",
     "file_name": "standard_variables",
     "author": "standard_variables",
+    "date": "standard_variables",
+    "attachment_path": "standard_paths",
 }
 
 # Create dictionary for the file filters
@@ -46,9 +54,15 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
+        # Addes a debug action on a key shortcut which prints the content of the str_input dictionary
+        self.debug_action = QAction(self)
+        self.debug_action.setShortcut("Ctrl+D")
+        self.debug_action.triggered.connect(lambda: print(str_input))
+        self.addAction(self.debug_action)
+
         # Set the name of the main window and its size
         self.setWindowTitle("Obsidian2LaTeX")
-        self.resize(500, 300)
+        self.resize(800, 450)
 
         # Addes menu bar
         menu = self.menuBar()
@@ -76,15 +90,24 @@ class MainWindow(QMainWindow):
         self.lineedit_template_path = QLineEdit(text=config["standard_paths"]["template_path"])
         self.lineedit_template_path.textChanged.connect(lambda text: self.set_lineedit("template_path", text))
 
+        self.lineedit_attachment_path = QLineEdit(text=config["standard_paths"]["attachment_path"])
+        self.lineedit_attachment_path.textChanged.connect(lambda text: self.set_lineedit("attachment_path", text))
+
         self.lineedit_author = QLineEdit(placeholderText=config["standard_variables"]["author"])
         self.lineedit_author.textChanged.connect(lambda text: self.set_lineedit("author", text))
+
+        self.lineedit_date = QDateEdit(QDate.fromString(config["standard_variables"]["date"], "yyyy-MM-dd"))
+        self.lineedit_date.setCalendarPopup(True)
+        self.lineedit_date.dateChanged.connect(self.set_date)
 
         # Create the labels for the input fields
         label_in_path = QLabel("Path to the input file")
         label_file_name = QLabel("Name of the output file")
         label_out_path = QLabel("Path to the output directory")
         label_template_path = QLabel("Path to the template file")
+        self.label_attachment_path = QLabel("Path to the attachment directory")
         self.label_author = QLabel("Author of the document")
+        self.label_date = QLabel("Date of the document")
 
         # Create the buttons for the input fields
         self.btn_in_path = QPushButton("in_path", text="Browse")
@@ -95,6 +118,9 @@ class MainWindow(QMainWindow):
 
         self.btn_template_path = QPushButton("template_path", text="Browse")
         self.btn_template_path.clicked.connect(lambda: self.browse_file("template_path"))
+
+        self.btn_attachment_path = QPushButton("attachment_path", text="Browse")
+        self.btn_attachment_path.clicked.connect(lambda: self.browse_dir("attachment_path"))
 
         # Creates BoxLayouts which combine the input field and the button
         textbox_in_path = QHBoxLayout()
@@ -109,6 +135,10 @@ class MainWindow(QMainWindow):
         textbox_template_path.addWidget(self.lineedit_template_path)
         textbox_template_path.addWidget(self.btn_template_path)
 
+        textbox_attachment_path = QHBoxLayout()
+        textbox_attachment_path.addWidget(self.lineedit_attachment_path)
+        textbox_attachment_path.addWidget(self.btn_attachment_path)
+
         # Creates BoxLayouts which combine the label and the input field
         in_path = QVBoxLayout()
         in_path.addWidget(label_in_path)
@@ -122,6 +152,10 @@ class MainWindow(QMainWindow):
         template_path.addWidget(label_template_path)
         template_path.addLayout(textbox_template_path)
 
+        attachment_path = QVBoxLayout()
+        attachment_path.addWidget(self.label_attachment_path)
+        attachment_path.addLayout(textbox_attachment_path)
+
         name = QVBoxLayout()
         name.addWidget(label_file_name)
         name.addWidget(self.lineedit_file_name)
@@ -129,6 +163,10 @@ class MainWindow(QMainWindow):
         author = QVBoxLayout()
         author.addWidget(self.label_author)
         author.addWidget(self.lineedit_author)
+
+        date = QVBoxLayout()
+        date.addWidget(self.label_date)
+        date.addWidget(self.lineedit_date)
 
         # Check if the standard template file contains AUTHOR
         # If it does, enable the author input field
@@ -140,10 +178,44 @@ class MainWindow(QMainWindow):
             else:
                 self.lineedit_author.hide()
                 self.label_author.hide()
-                str_input["author"] = None
+                str_input["author"] = " "
+
+            # Check if the standard template file contains DATE
+            # If it does, hide the date input field
+            if "DATE" in template and not config["behaviour"]["use_current_date"]:
+                self.lineedit_date.show()
+                self.label_date.show()
+            else:
+                self.lineedit_date.hide()
+                self.label_date.hide()
+                if config["behaviour"]["use_current_date"]:
+                    str_input["date"] = "\\today"
+
+        # Check if the input file contains an image
+        # If it does, enable the attachment input field
+        input_file = Path(config["standard_paths"]["in_path"])
+        if os.path.exists(input_file) and input_file.suffix == ".md":
+            with open(input_file) as MD_file:
+                if re.finditer(r"(\.pdf|\.png|\.jpg|\.jpeg|\.gif)(|.*)*\]\]", MD_file.read(), re.MULTILINE):
+                    self.lineedit_attachment_path.show()
+                    self.btn_attachment_path.show()
+                    self.label_attachment_path.show()
+                    str_input["attachment_path"] = config["standard_paths"]["attachment_path"]
+                else:
+                    self.lineedit_attachment_path.hide()
+                    self.btn_attachment_path.hide()
+                    self.label_attachment_path.hide()
+                    str_input["attachment_path"] = " "
+        else:
+            self.lineedit_attachment_path.hide()
+            self.btn_attachment_path.hide()
+            self.label_attachment_path.hide()
+            str_input["attachment_path"] = " "
 
         # Disable the convert button if one of the input fields is empty
-        if "" in str_input.values():
+        if "" not in str_input.values() and re.match(r".*\.md", str_input["in_path"]):
+            self.button.setEnabled(True)
+        else:
             self.button.setEnabled(False)
 
         # Create the layout
@@ -152,9 +224,11 @@ class MainWindow(QMainWindow):
         # Add the elements to the layout
         layout.addLayout(name)
         layout.addLayout(author)
+        layout.addLayout(date)
         layout.addLayout(in_path)
         layout.addLayout(out_path)
         layout.addLayout(template_path)
+        layout.addLayout(attachment_path)
         layout.addWidget(self.button)
 
         # Create the container widget and set the layout
@@ -187,12 +261,51 @@ class MainWindow(QMainWindow):
                     else:
                         self.lineedit_author.hide()
                         self.label_author.hide()
-                        str_input["author"] = None
+                        str_input["author"] = " "
 
-        if "" in str_input.values():
-            self.button.setEnabled(False)
-        else:
+                    # Check if the template file contains DATE
+                    # If it does, enable the date input field
+                    if "DATE" in template and not config["behaviour"]["use_current_date"]:
+                        self.lineedit_date.show()
+                        self.label_date.show()
+                    else:
+                        self.lineedit_date.hide()
+                        self.label_date.hide()
+                        if config["behaviour"]["use_current_date"]:
+                            str_input["date"] = "\\today"
+
+        # Check if the input field contains an image
+        # If it does, enable the attachment input field
+        if lbl == "in_path":
+            input_file = Path(str_input["in_path"])
+            print(input_file.suffix)
+            if os.path.exists(input_file) and input_file.suffix == ".md":
+                with open(input_file) as MD_file:
+                    if re.search(r"(\.pdf|\.png|\.jpg|\.jpeg|\.gif)(|.*)*\]\]", MD_file.read(), re.MULTILINE):
+                        self.lineedit_attachment_path.show()
+                        self.btn_attachment_path.show()
+                        self.label_attachment_path.show()
+                        str_input["attachment_path"] = config["standard_paths"]["attachment_path"]
+                    else:
+                        self.lineedit_attachment_path.hide()
+                        self.btn_attachment_path.hide()
+                        self.label_attachment_path.hide()
+                        str_input["attachment_path"] = " "
+            else:
+                self.lineedit_attachment_path.hide()
+                self.btn_attachment_path.hide()
+                self.label_attachment_path.hide()
+                str_input["attachment_path"] = " "
+
+        # Disable the convert button if one of the input fields is empty and the input file ends with .md
+        if "" not in str_input.values() and re.match(r".*\.md", str_input["in_path"]):
             self.button.setEnabled(True)
+        else:
+            self.button.setEnabled(False)
+
+    # Define the input function for the date field
+    def set_date(self, date):
+        str_input["date"] = date.toString("yyyy-MM-dd")
 
     # Define the input functions for the browse_file buttons
     def browse_file(self, lbl):
@@ -218,12 +331,25 @@ class MainWindow(QMainWindow):
 
     # Define the settings_closed function
     def settings_closed(self):
-        # If the settings window was closed, update the placeholder text of the input fields
+        # If the settings window was closed, update the text of the path fields
+
         self.lineedit_in_path.setText(config["standard_paths"]["in_path"])
         self.lineedit_out_path.setText(config["standard_paths"]["out_path"])
         self.lineedit_template_path.setText(config["standard_paths"]["template_path"])
+        self.lineedit_attachment_path.setText(config["standard_paths"]["attachment_path"])
+
+        # If the settings window was closed, update the placeholdertext of the variable fields
         self.lineedit_file_name.setPlaceholderText(config["standard_variables"]["file_name"])
         self.lineedit_author.setPlaceholderText(config["standard_variables"]["author"])
+
+        # If the settings window was closed, update the date field
+        self.lineedit_date.setDate(QDate.fromString(config["standard_variables"]["date"], "yyyy-MM-dd"))
+
+        # If the settings window was closed, update the content of the str_input dictionary
+        for key in config.keys():
+            if "standard" in key:
+                for subkey in config[key].keys():
+                    str_input[subkey] = config[key][subkey]
 
 
 class SettingsWindow(QWidget):
@@ -232,25 +358,32 @@ class SettingsWindow(QWidget):
     def __init__(self):
         super().__init__()
 
+        # Define debug action on a key shortcut which prints the content of the config dictionary
+        self.debug_action = QAction(self)
+        self.debug_action.setShortcut("Ctrl+D")
+        self.debug_action.triggered.connect(lambda: print(config))
+
         # Define temporary dictionary for the changed values
-        self.temp_config = {
-            "standard_paths": {
-                "in_path": config["standard_paths"]["in_path"],
-                "out_path": config["standard_paths"]["out_path"],
-                "template_path": config["standard_paths"]["template_path"],
-            },
-            "standard_variables": {
-                "file_name": config["standard_variables"]["file_name"],
-                "author": config["standard_variables"]["author"],
-            },
-        }
+        self.temp_config = {}
+        for key in config.keys():
+            self.temp_config[key] = {}
+            for subkey in config[key].keys():
+                self.temp_config[key][subkey] = config[key][subkey]
 
         # Set the name of the settings window and its size
         self.setWindowTitle("Settings")
         self.resize(500, 300)
 
-        # Create the widgets for the settings
+        # Create a separator
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setFrameShadow(QFrame.Sunken)
+
         # Settings for the paths
+
+        paths = QVBoxLayout()
+        paths.addWidget(QLabel("Paths"))
+
         # Input field for the standard path to the input file
         settings_in_path = QVBoxLayout()
 
@@ -267,6 +400,8 @@ class SettingsWindow(QWidget):
 
         settings_in_path.addWidget(QLabel("Standard path to the input file"))
         settings_in_path.addLayout(settings_textbox_in_path)
+
+        paths.addLayout(settings_in_path)
 
         # Input field for the standard path to the output directory
         settings_out_path = QVBoxLayout()
@@ -285,6 +420,8 @@ class SettingsWindow(QWidget):
         settings_out_path.addWidget(QLabel("Standard path to the output directory"))
         settings_out_path.addLayout(settings_textbox_out_path)
 
+        paths.addLayout(settings_out_path)
+
         # Input field for the standard path to the template file
         settings_template_path = QVBoxLayout()
 
@@ -294,7 +431,7 @@ class SettingsWindow(QWidget):
         self.settings_lineedit_template_path.textChanged.connect(lambda text: self.set_lineedit("template_path", text))
 
         self.settings_btn_template_path = QPushButton("template_path", text="Browse")
-        self.settings_btn_template_path.clicked.connect(lambda: self.browse_dir("template_path"))
+        self.settings_btn_template_path.clicked.connect(lambda: self.browse_file("template_path"))
 
         settings_textbox_template_path.addWidget(self.settings_lineedit_template_path)
         settings_textbox_template_path.addWidget(self.settings_btn_template_path)
@@ -302,7 +439,41 @@ class SettingsWindow(QWidget):
         settings_template_path.addWidget(QLabel("Standard path to the template file"))
         settings_template_path.addLayout(settings_textbox_template_path)
 
+        paths.addLayout(settings_template_path)
+
+        # Input field for the standard path to the attachment directory
+        settings_attachment_path = QVBoxLayout()
+
+        settings_textbox_attachment_path = QHBoxLayout()
+
+        self.settings_lineedit_attachment_path = QLineEdit(self.temp_config["standard_paths"]["attachment_path"])
+        self.settings_lineedit_attachment_path.textChanged.connect(
+            lambda text: self.set_lineedit("attachment_path", text)
+        )  # noqa: E501
+
+        self.settings_btn_attachment_path = QPushButton("attachment_path", text="Browse")
+        self.settings_btn_attachment_path.clicked.connect(lambda: self.browse_dir("attachment_path"))
+
+        settings_textbox_attachment_path.addWidget(self.settings_lineedit_attachment_path)
+        settings_textbox_attachment_path.addWidget(self.settings_btn_attachment_path)
+
+        settings_attachment_path.addWidget(QLabel("Standard path to the attachment directory"))
+        settings_attachment_path.addLayout(settings_textbox_attachment_path)
+
+        paths.addLayout(settings_attachment_path)
+
+        # Create a separator afrer the paths
+        separator_paths = QFrame()
+        separator_paths.setFrameShape(QFrame.HLine)
+        separator_paths.setFrameShadow(QFrame.Sunken)
+
+        paths.addWidget(separator_paths)
+
         # Settings for the variables
+
+        variables = QVBoxLayout()
+        variables.addWidget(QLabel("Variables"))
+
         # Input field for the standard name of the output file
 
         settings_file_name = QVBoxLayout()
@@ -313,6 +484,8 @@ class SettingsWindow(QWidget):
         settings_file_name.addWidget(QLabel("Standard name of the output file"))
         settings_file_name.addWidget(self.settings_lineedit_file_name)
 
+        variables.addLayout(settings_file_name)
+
         # Input field for the standard author of the document
         settings_author = QVBoxLayout()
 
@@ -321,6 +494,59 @@ class SettingsWindow(QWidget):
 
         settings_author.addWidget(QLabel("Standard author of the document"))
         settings_author.addWidget(self.settings_lineedit_author)
+
+        variables.addLayout(settings_author)
+
+        # Input field for the standard date of the document
+        settings_date = QVBoxLayout()
+
+        # Convert the date string to a QDate object
+
+        self.settings_lineedit_date = QDateEdit(
+            QDate.fromString(self.temp_config["standard_variables"]["date"], "yyyy-MM-dd")
+        )  # noqa: E501
+        self.settings_lineedit_date.setCalendarPopup(True)
+        self.settings_lineedit_date.dateChanged.connect(self.set_date)
+
+        settings_date.addWidget(QLabel("Standard date of the document"))
+        settings_date.addWidget(self.settings_lineedit_date)
+
+        variables.addLayout(settings_date)
+
+        # Create a separator afrer the variables
+        separator_variables = QFrame()
+        separator_variables.setFrameShape(QFrame.HLine)
+        separator_variables.setFrameShadow(QFrame.Sunken)
+
+        variables.addWidget(separator_variables)
+
+        # Settings for the behaviour
+
+        behaviour = QVBoxLayout()
+        behaviour.addWidget(QLabel("Behaviour"))
+
+        # Create a tick box for the metadata override behaviour option
+        self.settings_checkbox_override = QCheckBox("Overwrite content with metadata (if available)")
+        self.settings_checkbox_override.setChecked(self.temp_config["behaviour"]["override_with_metadata"])
+        self.settings_checkbox_override.stateChanged.connect(
+            lambda state: self.set_checkbox("override_with_metadata", state)
+        )  # noqa: E501
+
+        behaviour.addWidget(self.settings_checkbox_override)
+
+        # Create a tick box for the current date behaviour option
+        self.settings_checkbox_date = QCheckBox("Use current date as standard date")
+        self.settings_checkbox_date.setChecked(self.temp_config["behaviour"]["use_current_date"])
+        self.settings_checkbox_date.stateChanged.connect(lambda state: self.set_checkbox("use_current_date", state))
+
+        behaviour.addWidget(self.settings_checkbox_date)
+
+        # Create a separator afrer the tick boxes
+        separator_tickboxes = QFrame()
+        separator_tickboxes.setFrameShape(QFrame.HLine)
+        separator_tickboxes.setFrameShadow(QFrame.Sunken)
+
+        behaviour.addWidget(separator_tickboxes)
 
         # Create a layout for the buttons
         settings_buttons = QHBoxLayout()
@@ -347,11 +573,11 @@ class SettingsWindow(QWidget):
         layout = QVBoxLayout()
 
         # Add the elements to the layout
-        layout.addLayout(settings_in_path)
-        layout.addLayout(settings_out_path)
-        layout.addLayout(settings_template_path)
-        layout.addLayout(settings_file_name)
-        layout.addLayout(settings_author)
+        layout.addWidget(QLabel("Settings"))
+        layout.addWidget(separator)
+        layout.addLayout(paths)
+        layout.addLayout(variables)
+        layout.addLayout(behaviour)
         layout.addLayout(settings_buttons)
 
         # Set the layout
@@ -360,6 +586,18 @@ class SettingsWindow(QWidget):
     # Define the input functions for the text fields
     def set_lineedit(self, lbl, text):
         self.temp_config[config_key[lbl]][lbl] = text
+        print(config)
+
+    # Define the input function for the date field
+    def set_date(self, date):
+        self.temp_config["standard_variables"]["date"] = date.toString("yyyy-MM-dd")
+
+    # Define the input function for checkboxes
+    def set_checkbox(self, lbl, state):
+        if state == 2:
+            self.temp_config["behaviour"][lbl] = True
+        else:
+            self.temp_config["behaviour"][lbl] = False
 
     # Define the input functions for the browse_dir buttons
     def browse_dir(self, lbl):
@@ -367,10 +605,21 @@ class SettingsWindow(QWidget):
         if name:
             if lbl == "out_path":
                 self.settings_lineedit_out_path.setText(name)
-            elif lbl == "template_path":
-                self.settings_lineedit_template_path.setText(name)
+            elif lbl == "attachment_path":
+                self.settings_lineedit_attachment_path.setText(name)
             elif lbl == "in_path":
                 self.settings_lineedit_in_path.setText(name)
+
+    # Define the input functions for the browse_file buttons
+    def browse_file(self, lbl):
+        name = QFileDialog.getOpenFileName(
+            self, "Select Directory", self.temp_config["standard_paths"][lbl], file_filter[lbl]
+        )[
+            0
+        ]  # noqa: E501
+        if name:
+            if lbl == "template_path":
+                self.settings_lineedit_template_path.setText(name)
 
     # Define the save function
     def save(self):
@@ -403,6 +652,12 @@ class SettingsWindow(QWidget):
         self.settings_lineedit_template_path.setText(config["standard_paths"]["template_path"])
         self.settings_lineedit_file_name.setText(config["standard_variables"]["file_name"])
         self.settings_lineedit_author.setText(config["standard_variables"]["author"])
+        self.settings_lineedit_date.setDate(QDate.fromString(config["standard_variables"]["date"], "yyyy-MM-dd"))
+        self.settings_lineedit_attachment_path.setText(config["standard_paths"]["attachment_path"])
+
+        # Reset the tick boxes to the values of the config dictionary
+        self.settings_checkbox_override.setChecked(config["behaviour"]["override_with_metadata"])
+        self.settings_checkbox_date.setChecked(config["behaviour"]["use_current_date"])
 
     # Define the closeEvent function
     def closeEvent(self, event):
@@ -417,14 +672,8 @@ class SettingsWindow(QWidget):
 
 
 def main():
-    convert_MD2TeX(
-        in_path=str_input["in_path"],
-        name=str_input["name"],
-        out_path=str_input["out_path"],
-        template_path=str_input["template_path"],
-        author=str_input["author"],
-    )
-    bake_TeX(name=str_input["name"], out_path=str_input["out_path"])
+    convert_MD2TeX(str_input, config["behaviour"])
+    bake_TeX(str_input)
 
 
 if __name__ == "__main__":
@@ -438,14 +687,32 @@ if __name__ == "__main__":
     with open(config_dir + "/config.toml") as config_file:
         config = tomlkit.parse(config_file.read())
 
+    # If the config file has not all keys, add the missing keys
+    with open("config_preset.toml") as preset_config_file:
+        preset_config = tomlkit.parse(preset_config_file.read())
+        for key in preset_config.keys():
+            if key not in config.keys():
+                config[key] = preset_config[key]
+
+                # Write the new content to the config file
+                with open(config_dir + "/config.toml", "w") as config_file:
+                    config_file.write(tomlkit.dumps(config))
+
+            for subkey in preset_config[key].keys():
+                if subkey not in config[key].keys():
+                    config[key][subkey] = preset_config[key][subkey]
+
+                    # Write the new content to the config file
+                    with open(config_dir + "/config.toml", "w") as config_file:
+                        config_file.write(tomlkit.dumps(config))
+
     # Set the standard values for the input fields
-    str_input = {
-        "in_path": config["standard_paths"]["in_path"],
-        "name": config["standard_variables"]["file_name"],
-        "out_path": config["standard_paths"]["out_path"],
-        "template_path": config["standard_paths"]["template_path"],
-        "author": config["standard_variables"]["author"],
-    }
+    # We copy all the values from the config dictionary which the key contains standard to the str_input dictionary
+    str_input = {}
+    for key in config.keys():
+        if "standard" in key:
+            for subkey in config[key].keys():
+                str_input[subkey] = config[key][subkey]
 
     app = QApplication([])
 
