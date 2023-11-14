@@ -342,6 +342,9 @@ class MainWindow(QMainWindow):
         self.lineedit_file_name.setPlaceholderText(config["standard_variables"]["file_name"])
         self.lineedit_author.setPlaceholderText(config["standard_variables"]["author"])
 
+        str_input["file_name"] = self.lineedit_file_name.text()
+        str_input["author"] = self.lineedit_author.text()
+
         # If the settings window was closed, update the date field
         self.lineedit_date.setDate(QDate.fromString(config["standard_variables"]["date"], "yyyy-MM-dd"))
 
@@ -350,6 +353,11 @@ class MainWindow(QMainWindow):
             if "standard" in key:
                 for subkey in config[key].keys():
                     str_input[subkey] = config[key][subkey]
+
+        # If the use current date option is enabled, set the date to today
+        if config["behaviour"]["use_current_date"]:
+            self.lineedit_date.setDate(QDate.currentDate())
+            str_input["date"] = "\\today"
 
 
 class SettingsWindow(QWidget):
