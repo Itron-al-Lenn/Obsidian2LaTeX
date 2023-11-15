@@ -1,5 +1,6 @@
 import os
 import re
+import time
 from pathlib import Path
 
 import platformdirs
@@ -21,7 +22,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from Obsidian2LaTeX_helper import bake_TeX, convert_MD2TeX
+from Obsidian2LaTeX_helper import bake_TeX, convert_excalidraw, convert_MD2TeX
 
 # Add the specifications for platformdirs
 appname = "Obsidian2LaTeX"
@@ -38,7 +39,7 @@ config_key = {
     "file_name": "standard_variables",
     "author": "standard_variables",
     "date": "standard_variables",
-    "attachment_path": "standard_paths",
+    "vault_path": "standard_paths",
 }
 
 # Create dictionary for the file filters
@@ -90,8 +91,8 @@ class MainWindow(QMainWindow):
         self.lineedit_template_path = QLineEdit(text=config["standard_paths"]["template_path"])
         self.lineedit_template_path.textChanged.connect(lambda text: self.set_lineedit("template_path", text))
 
-        self.lineedit_attachment_path = QLineEdit(text=config["standard_paths"]["attachment_path"])
-        self.lineedit_attachment_path.textChanged.connect(lambda text: self.set_lineedit("attachment_path", text))
+        self.lineedit_vault_path = QLineEdit(text=config["standard_paths"]["vault_path"])
+        self.lineedit_vault_path.textChanged.connect(lambda text: self.set_lineedit("vault_path", text))
 
         self.lineedit_author = QLineEdit(placeholderText=config["standard_variables"]["author"])
         self.lineedit_author.textChanged.connect(lambda text: self.set_lineedit("author", text))
@@ -105,7 +106,7 @@ class MainWindow(QMainWindow):
         label_file_name = QLabel("Name of the output file")
         label_out_path = QLabel("Path to the output directory")
         label_template_path = QLabel("Path to the template file")
-        self.label_attachment_path = QLabel("Path to the attachment directory")
+        self.label_vault_path = QLabel("Path to the vault directory")
         self.label_author = QLabel("Author of the document")
         self.label_date = QLabel("Date of the document")
 
@@ -119,8 +120,8 @@ class MainWindow(QMainWindow):
         self.btn_template_path = QPushButton("template_path", text="Browse")
         self.btn_template_path.clicked.connect(lambda: self.browse_file("template_path"))
 
-        self.btn_attachment_path = QPushButton("attachment_path", text="Browse")
-        self.btn_attachment_path.clicked.connect(lambda: self.browse_dir("attachment_path"))
+        self.btn_vault_path = QPushButton("vault_path", text="Browse")
+        self.btn_vault_path.clicked.connect(lambda: self.browse_dir("vault_path"))
 
         # Creates BoxLayouts which combine the input field and the button
         textbox_in_path = QHBoxLayout()
@@ -135,9 +136,9 @@ class MainWindow(QMainWindow):
         textbox_template_path.addWidget(self.lineedit_template_path)
         textbox_template_path.addWidget(self.btn_template_path)
 
-        textbox_attachment_path = QHBoxLayout()
-        textbox_attachment_path.addWidget(self.lineedit_attachment_path)
-        textbox_attachment_path.addWidget(self.btn_attachment_path)
+        textbox_vault_path = QHBoxLayout()
+        textbox_vault_path.addWidget(self.lineedit_vault_path)
+        textbox_vault_path.addWidget(self.btn_vault_path)
 
         # Creates BoxLayouts which combine the label and the input field
         in_path = QVBoxLayout()
@@ -152,9 +153,9 @@ class MainWindow(QMainWindow):
         template_path.addWidget(label_template_path)
         template_path.addLayout(textbox_template_path)
 
-        attachment_path = QVBoxLayout()
-        attachment_path.addWidget(self.label_attachment_path)
-        attachment_path.addLayout(textbox_attachment_path)
+        vault_path = QVBoxLayout()
+        vault_path.addWidget(self.label_vault_path)
+        vault_path.addLayout(textbox_vault_path)
 
         name = QVBoxLayout()
         name.addWidget(label_file_name)
@@ -170,50 +171,37 @@ class MainWindow(QMainWindow):
 
         # Check if the standard template file contains AUTHOR
         # If it does, enable the author input field
-        with open(config["standard_paths"]["template_path"]) as template_file:
-            template = template_file.read()
-            if "AUTHOR" in template:
-                self.lineedit_author.show()
-                self.label_author.show()
-            else:
-                self.lineedit_author.hide()
-                self.label_author.hide()
-                str_input["author"] = " "
-
-            # Check if the standard template file contains DATE
-            # If it does, hide the date input field
-            if "DATE" in template and not config["behaviour"]["use_current_date"]:
-                self.lineedit_date.show()
-                self.label_date.show()
-            else:
-                self.lineedit_date.hide()
-                self.label_date.hide()
-                if config["behaviour"]["use_current_date"]:
-                    str_input["date"] = "\\today"
-
-        # Check if the input file contains an image
-        # If it does, enable the attachment input field
-        input_file = Path(config["standard_paths"]["in_path"])
-        if os.path.exists(input_file) and input_file.suffix == ".md":
-            with open(input_file) as MD_file:
-                if re.finditer(r"(\.pdf|\.png|\.jpg|\.jpeg|\.gif)(|.*)*\]\]", MD_file.read(), re.MULTILINE):
-                    self.lineedit_attachment_path.show()
-                    self.btn_attachment_path.show()
-                    self.label_attachment_path.show()
-                    str_input["attachment_path"] = config["standard_paths"]["attachment_path"]
-                else:
-                    self.lineedit_attachment_path.hide()
-                    self.btn_attachment_path.hide()
-                    self.label_attachment_path.hide()
-                    str_input["attachment_path"] = " "
+        template = open(config["standard_paths"]["template_path"]).read()
+        if "AUTHOR" in template and Path(config["standard_paths"]["template_path"]).suffix == ".tex":
+            self.lineedit_author.show()
+            self.label_author.show()
+            str_input["author"] = config["standard_variables"]["author"]
         else:
-            self.lineedit_attachment_path.hide()
-            self.btn_attachment_path.hide()
-            self.label_attachment_path.hide()
-            str_input["attachment_path"] = " "
+            self.lineedit_author.hide()
+            self.label_author.hide()
+            str_input["author"] = " "
+
+        if (
+            "DATE" in template
+            and Path(config["standard_paths"]["template_path"]).suffix == ".tex"
+            and not config["behaviour"]["use_current_date"]
+        ):
+            self.lineedit_date.show()
+            self.label_date.show()
+            self.lineedit_date.setDate(QDate.fromString(config["standard_variables"]["date"], "yyyy-MM-dd"))
+        else:
+            self.lineedit_date.hide()
+            self.label_date.hide()
+            if config["behaviour"]["use_current_date"]:
+                str_input["date"] = "\\today"
+
+        self.lineedit_vault_path.hide()
+        self.btn_vault_path.hide()
+        self.label_vault_path.hide()
+        str_input["vault_path"] = " "
 
         # Disable the convert button if one of the input fields is empty
-        if "" not in str_input.values() and re.match(r".*\.md", str_input["in_path"]):
+        if "" not in str_input.values() and Path(str_input["in_path"]).suffix == ".md":
             self.button.setEnabled(True)
         else:
             self.button.setEnabled(False)
@@ -228,7 +216,7 @@ class MainWindow(QMainWindow):
         layout.addLayout(in_path)
         layout.addLayout(out_path)
         layout.addLayout(template_path)
-        layout.addLayout(attachment_path)
+        layout.addLayout(vault_path)
         layout.addWidget(self.button)
 
         # Create the container widget and set the layout
@@ -240,7 +228,34 @@ class MainWindow(QMainWindow):
 
     # Define that the main function runs after pressing the button
     def convert(self):
-        main()
+        # Hide the convert button
+        self.button.hide()
+
+        # Wait for a moment
+        time.sleep(0.5)
+
+        # Convert the input file to TeX
+        temp_folder, drawing_names = convert_MD2TeX(str_input, config["behaviour"])
+
+        # If there are excalidraw drawings in the input file, convert them
+        if drawing_names:
+            # Convert the excalidraw drawings
+            convert_excalidraw(drawing_names, str_input["vault_path"], temp_folder)
+
+        bake_TeX(str_input, temp_folder)
+
+        # Wait for a moment
+        time.sleep(0.5)
+
+        # Show the convert button
+        self.button.show()
+
+        # Hide the status messages
+        self.label_status1.hide()
+        self.label_status2.hide()
+        self.label_status3.hide()
+        self.label_status4.hide()
+        self.label_status5.hide()
 
     # Define the input functions for the text fields
     def set_lineedit(self, lbl, text):
@@ -252,53 +267,74 @@ class MainWindow(QMainWindow):
         # If it does, enable the author input field
         if lbl == "template_path":
             if os.path.exists(str_input[lbl]):
-                with open(str_input[lbl]) as template_file:
-                    template = template_file.read()
-                    if "AUTHOR" in template:
-                        self.lineedit_author.show()
-                        self.label_author.show()
-                        str_input["author"] = config["standard_variables"]["author"]
-                    else:
-                        self.lineedit_author.hide()
-                        self.label_author.hide()
-                        str_input["author"] = " "
-
-                    # Check if the template file contains DATE
-                    # If it does, enable the date input field
-                    if "DATE" in template and not config["behaviour"]["use_current_date"]:
-                        self.lineedit_date.show()
-                        self.label_date.show()
-                    else:
-                        self.lineedit_date.hide()
-                        self.label_date.hide()
-                        if config["behaviour"]["use_current_date"]:
-                            str_input["date"] = "\\today"
+                template = open(str_input["template_path"]).read()
+                if "AUTHOR" in template and Path(str_input["template_path"]).suffix == ".tex":
+                    self.lineedit_author.show()
+                    self.label_author.show()
+                    str_input["author"] = config["standard_variables"]["author"]
+                else:
+                    self.lineedit_author.hide()
+                    self.label_author.hide()
+                    str_input["author"] = " "
+                # Check if the template file contains DATE
+                # If it does, enable the date input field
+                if (
+                    "DATE" in template
+                    and Path(str_input["template_path"]).suffix == ".tex"
+                    and not config["behaviour"]["use_current_date"]
+                ):
+                    self.lineedit_date.show()
+                    self.label_date.show()
+                    self.lineedit_date.setDate(QDate.fromString(config["standard_variables"]["date"], "yyyy-MM-dd"))
+                else:
+                    self.lineedit_date.hide()
+                    self.label_date.hide()
+                    if config["behaviour"]["use_current_date"]:
+                        str_input["date"] = "\\today"
 
         # Check if the input field contains an image
-        # If it does, enable the attachment input field
+        # If it does, enable the vault input field
         if lbl == "in_path":
             input_file = Path(str_input["in_path"])
-            print(input_file.suffix)
-            if os.path.exists(input_file) and input_file.suffix == ".md":
-                with open(input_file) as MD_file:
-                    if re.search(r"(\.pdf|\.png|\.jpg|\.jpeg|\.gif)(|.*)*\]\]", MD_file.read(), re.MULTILINE):
-                        self.lineedit_attachment_path.show()
-                        self.btn_attachment_path.show()
-                        self.label_attachment_path.show()
-                        str_input["attachment_path"] = config["standard_paths"]["attachment_path"]
-                    else:
-                        self.lineedit_attachment_path.hide()
-                        self.btn_attachment_path.hide()
-                        self.label_attachment_path.hide()
-                        str_input["attachment_path"] = " "
+            input_text = open(input_file).read()
+            if (
+                os.path.exists(input_file)
+                and Path(str_input["in_path"]).suffix == ".md"
+                and re.search(r"(\.pdf|\.png|\.jpg|\.jpeg|\.gif)(|.*)*\]\]", input_text)
+            ):
+                has_image = True
+                print("has image")
+
             else:
-                self.lineedit_attachment_path.hide()
-                self.btn_attachment_path.hide()
-                self.label_attachment_path.hide()
-                str_input["attachment_path"] = " "
+                has_image = False
+                print("no image")
+
+            # Check if the input file contains an excalidraw drawing
+            print(re.search(r"!\[\[.*\.excalidraw(|.*)*\]\]", input_text))
+            if (
+                os.path.exists(input_file)
+                and input_file.suffix == ".md"
+                and re.search(r"!\[\[.*\.excalidraw(|.*)*\]\]", input_text)
+            ):
+                has_excalidraw = True
+                print("has excalidraw")
+            else:
+                has_excalidraw = False
+                print("no excalidraw")
+
+            if has_image or has_excalidraw:
+                self.lineedit_vault_path.show()
+                self.btn_vault_path.show()
+                self.label_vault_path.show()
+                str_input["vault_path"] = config["standard_paths"]["vault_path"]
+            else:
+                self.lineedit_vault_path.hide()
+                self.btn_vault_path.hide()
+                self.label_vault_path.hide()
+                str_input["vault_path"] = " "
 
         # Disable the convert button if one of the input fields is empty and the input file ends with .md
-        if "" not in str_input.values() and re.match(r".*\.md", str_input["in_path"]):
+        if "" not in str_input.values() and Path(str_input["in_path"]).suffix == ".md":
             self.button.setEnabled(True)
         else:
             self.button.setEnabled(False)
@@ -332,18 +368,14 @@ class MainWindow(QMainWindow):
     # Define the settings_closed function
     def settings_closed(self):
         # If the settings window was closed, update the text of the path fields
-
         self.lineedit_in_path.setText(config["standard_paths"]["in_path"])
         self.lineedit_out_path.setText(config["standard_paths"]["out_path"])
         self.lineedit_template_path.setText(config["standard_paths"]["template_path"])
-        self.lineedit_attachment_path.setText(config["standard_paths"]["attachment_path"])
+        self.lineedit_vault_path.setText(config["standard_paths"]["vault_path"])
 
         # If the settings window was closed, update the placeholdertext of the variable fields
         self.lineedit_file_name.setPlaceholderText(config["standard_variables"]["file_name"])
         self.lineedit_author.setPlaceholderText(config["standard_variables"]["author"])
-
-        str_input["file_name"] = self.lineedit_file_name.text()
-        str_input["author"] = self.lineedit_author.text()
 
         # If the settings window was closed, update the date field
         self.lineedit_date.setDate(QDate.fromString(config["standard_variables"]["date"], "yyyy-MM-dd"))
@@ -388,7 +420,6 @@ class SettingsWindow(QWidget):
         separator.setFrameShadow(QFrame.Sunken)
 
         # Settings for the paths
-
         paths = QVBoxLayout()
         paths.addWidget(QLabel("Paths"))
 
@@ -449,26 +480,24 @@ class SettingsWindow(QWidget):
 
         paths.addLayout(settings_template_path)
 
-        # Input field for the standard path to the attachment directory
-        settings_attachment_path = QVBoxLayout()
+        # Input field for the standard path to the vault directory
+        settings_vault_path = QVBoxLayout()
 
-        settings_textbox_attachment_path = QHBoxLayout()
+        settings_textbox_vault_path = QHBoxLayout()
 
-        self.settings_lineedit_attachment_path = QLineEdit(self.temp_config["standard_paths"]["attachment_path"])
-        self.settings_lineedit_attachment_path.textChanged.connect(
-            lambda text: self.set_lineedit("attachment_path", text)
-        )  # noqa: E501
+        self.settings_lineedit_vault_path = QLineEdit(self.temp_config["standard_paths"]["vault_path"])
+        self.settings_lineedit_vault_path.textChanged.connect(lambda text: self.set_lineedit("vault_path", text))
 
-        self.settings_btn_attachment_path = QPushButton("attachment_path", text="Browse")
-        self.settings_btn_attachment_path.clicked.connect(lambda: self.browse_dir("attachment_path"))
+        self.settings_btn_vault_path = QPushButton("vault_path", text="Browse")
+        self.settings_btn_vault_path.clicked.connect(lambda: self.browse_dir("vault_path"))
 
-        settings_textbox_attachment_path.addWidget(self.settings_lineedit_attachment_path)
-        settings_textbox_attachment_path.addWidget(self.settings_btn_attachment_path)
+        settings_textbox_vault_path.addWidget(self.settings_lineedit_vault_path)
+        settings_textbox_vault_path.addWidget(self.settings_btn_vault_path)
 
-        settings_attachment_path.addWidget(QLabel("Standard path to the attachment directory"))
-        settings_attachment_path.addLayout(settings_textbox_attachment_path)
+        settings_vault_path.addWidget(QLabel("Standard path to the vault directory"))
+        settings_vault_path.addLayout(settings_textbox_vault_path)
 
-        paths.addLayout(settings_attachment_path)
+        paths.addLayout(settings_vault_path)
 
         # Create a separator afrer the paths
         separator_paths = QFrame()
@@ -478,12 +507,10 @@ class SettingsWindow(QWidget):
         paths.addWidget(separator_paths)
 
         # Settings for the variables
-
         variables = QVBoxLayout()
         variables.addWidget(QLabel("Variables"))
 
         # Input field for the standard name of the output file
-
         settings_file_name = QVBoxLayout()
 
         self.settings_lineedit_file_name = QLineEdit(self.temp_config["standard_variables"]["file_name"])
@@ -509,10 +536,9 @@ class SettingsWindow(QWidget):
         settings_date = QVBoxLayout()
 
         # Convert the date string to a QDate object
-
         self.settings_lineedit_date = QDateEdit(
             QDate.fromString(self.temp_config["standard_variables"]["date"], "yyyy-MM-dd")
-        )  # noqa: E501
+        )
         self.settings_lineedit_date.setCalendarPopup(True)
         self.settings_lineedit_date.dateChanged.connect(self.set_date)
 
@@ -529,7 +555,6 @@ class SettingsWindow(QWidget):
         variables.addWidget(separator_variables)
 
         # Settings for the behaviour
-
         behaviour = QVBoxLayout()
         behaviour.addWidget(QLabel("Behaviour"))
 
@@ -538,7 +563,7 @@ class SettingsWindow(QWidget):
         self.settings_checkbox_override.setChecked(self.temp_config["behaviour"]["override_with_metadata"])
         self.settings_checkbox_override.stateChanged.connect(
             lambda state: self.set_checkbox("override_with_metadata", state)
-        )  # noqa: E501
+        )
 
         behaviour.addWidget(self.settings_checkbox_override)
 
@@ -548,6 +573,15 @@ class SettingsWindow(QWidget):
         self.settings_checkbox_date.stateChanged.connect(lambda state: self.set_checkbox("use_current_date", state))
 
         behaviour.addWidget(self.settings_checkbox_date)
+
+        # Create a tick box for the store attachments behaviour option
+        self.settings_checkbox_attachments = QCheckBox("Store attachments of the last conversion")
+        self.settings_checkbox_attachments.setChecked(self.temp_config["behaviour"]["store_attachments"])
+        self.settings_checkbox_attachments.stateChanged.connect(
+            lambda state: self.set_checkbox("store_attachments", state)
+        )
+
+        behaviour.addWidget(self.settings_checkbox_attachments)
 
         # Create a separator afrer the tick boxes
         separator_tickboxes = QFrame()
@@ -613,8 +647,8 @@ class SettingsWindow(QWidget):
         if name:
             if lbl == "out_path":
                 self.settings_lineedit_out_path.setText(name)
-            elif lbl == "attachment_path":
-                self.settings_lineedit_attachment_path.setText(name)
+            elif lbl == "vault_path":
+                self.settings_lineedit_vault_path.setText(name)
             elif lbl == "in_path":
                 self.settings_lineedit_in_path.setText(name)
 
@@ -661,7 +695,7 @@ class SettingsWindow(QWidget):
         self.settings_lineedit_file_name.setText(config["standard_variables"]["file_name"])
         self.settings_lineedit_author.setText(config["standard_variables"]["author"])
         self.settings_lineedit_date.setDate(QDate.fromString(config["standard_variables"]["date"], "yyyy-MM-dd"))
-        self.settings_lineedit_attachment_path.setText(config["standard_paths"]["attachment_path"])
+        self.settings_lineedit_vault_path.setText(config["standard_paths"]["vault_path"])
 
         # Reset the tick boxes to the values of the config dictionary
         self.settings_checkbox_override.setChecked(config["behaviour"]["override_with_metadata"])
@@ -677,11 +711,6 @@ class SettingsWindow(QWidget):
         window.settings_closed()
 
         event.accept()
-
-
-def main():
-    convert_MD2TeX(str_input, config["behaviour"])
-    bake_TeX(str_input)
 
 
 if __name__ == "__main__":

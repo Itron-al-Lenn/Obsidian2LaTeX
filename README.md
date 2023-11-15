@@ -24,11 +24,20 @@ These things don't work right now. Either because of some syntax conflict or jus
 ## Requirements
 
 - TeX Live
+- Inkscape (if you use Excalidraw)
+- Excalidraw_export
 
 ## How to use
 
 - First, install TeX Live if you don't have it already installed. You can find a guide on how to [here](https://tug.org/texlive/acquire-netinstall.html)](https://tug.org/texlive/acquire-netinstall.html).
-<br><br>
+- If you want to use Excalidraw also install Inkscape. You find the download [here](https://inkscape.org/release/)
+- For Excalidraw support you too need excalidraw_export. You can install it using:
+
+```cmd
+npm install -g excalidraw_export
+```
+
+<br>
 - Download the latest release [here](https://github.com/Itron-al-Lenn/Obsidian2LaTeX/releases)
 - Unpack the binary in the directory you want and run it.
 - If you want to change the standard inputs you can change the config file you find in:
@@ -45,4 +54,4 @@ C:\Users\<username>\AppData\Local\Itron al Lenn\Obsidian2LaTeX
 - [X] Add the option to choose a custom LaTeX template to the interface
 - [X] Add support for italic
 - [X] Add support for images
-- [ ] Add support for .excalidraw
+- [X] Add support for .excalidraw
