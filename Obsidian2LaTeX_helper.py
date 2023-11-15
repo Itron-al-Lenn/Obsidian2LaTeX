@@ -50,6 +50,16 @@ class Lines(list):
             if i in self[index]:
                 return True
 
+    def has_excalidraw(self, index):
+        if re.search(r"\!\[\[.*\.excalidraw(|.*)*\]\]", self[index]):
+            return True
+
+    def start_json(self, index):
+        return self[index].startswith("```json")
+
+    def end_json(self, index):
+        return self[index].startswith("```")
+
 
 def convert(text):
     # We create a list of the lines in the text
@@ -71,22 +81,26 @@ def convert(text):
     if has_metadata:
         del lines[0 : end_metadata + 1]
 
-    # We loop through the lines and check if the line is a header
+    # Handy tools which help us later
+    last_was_end = True
+    image_names = []
+    drawing_names = []
+    del_index = []
+
+    # We loop through the lines
     for i in range(len(lines)):
+        # Check if the line is a header
         if lines.is_header(i):
             # If the line is a header we replace the "#" with the corresponding "\section{}"
             lines[i] = "\\section*{" + lines[i].replace("# ", "") + "}"
 
-    # We loop through the lines and check if the line is a subheader
-    for i in range(len(lines)):
-        if lines.is_subheader(i):
+        # Check if the line is a subheader
+        elif lines.is_subheader(i):
             # If the line is a subheader we replace the "##" with the corresponding "\subsection{}"
             lines[i] = "\\subsection*{" + lines[i].replace("## ", "") + "}"
 
-    # We loop through the lines and check if the line is a math environment
-    last_was_end = True
-    for i in range(len(lines)):
-        if lines.is_math(i):
+        # Check if the line is a math environment
+        elif lines.is_math(i):
             # If the line is a math environment we replace the "$$"
             # with the corresponding "\begin{align}" and "\end{align}"
             if last_was_end:
@@ -96,22 +110,34 @@ def convert(text):
                 lines[i] = lines[i].replace("$$", "") + "\\]"
                 last_was_end = True
 
-    # We loop through the lines and check if the line is an image
-    for i in range(len(lines)):
-        if lines.has_image(i):
-            # If the line is an image we replace the "![" with the corresponding "\\includegraphics{}"
-            lines[i] = lines[i].replace("![[", "\\includegraphics[width=\\textwidth]{", 1)
-            for j in image_formats:
-                if j in lines[i]:
-                    lines[i] = re.sub(j + r".*\]\]", "}", lines[i], 1)
-                    break
-
-    # We loop through the lines and check if the line is an align environment
-    del_index = []
-    for i in range(len(lines)):
-        if lines.is_align(i):
+        # Check if the line is an align environment
+        elif lines.is_align(i):
             # If the line is an align environment we add their index to an list
             del_index.append(i)
+
+        # These before were mutually exclusive, this is why we used elif
+
+        # Check if the line is an image
+        if lines.has_image(i):
+            # We get the names of the image files and remove everything after the file extension
+            for j in image_formats:
+                if j in lines[i]:
+                    image_names.append(lines[i].split("[[")[1].split(j)[0] + j)
+
+            # If the line is an image we replace the "![" with the corresponding "\\includegraphics{}"
+            lines[i] = lines[i].replace("![[", "\\begin{figure}[H]\n\\includegraphics[width=0.5\\textwidth]{", 1)
+            lines[i] = re.sub(r"(\|.*)*\]\]", "}\\n\\\\centering\\n\\\\end{figure}", lines[i], 1)
+
+        # Check if the line is an excalidraw
+        if lines.has_excalidraw(i):
+            # We get the names of the drawings and remove everything before the last "/" and after the file extension
+            drawing_names.append(lines[i].split("[[")[1].split("/")[-1].split(".")[0] + ".excalidraw.md")
+
+            # If the line is an excalidraw we replace the "![" with the corresponding "\\includegraphics{}"
+            lines[i] = re.sub(
+                r"\!\[\[.*\/", "\\\\begin{figure}[H]\\n\\\\includegraphics[width=0.5\\\\textwidth]{", lines[i], 1
+            )
+            lines[i] = re.sub(r"\]\]", ".svg.png}\\n\\\\centering\\n\\\\end{figure}", lines[i], 1)
 
     # We loop through the list of indexes and delete the corresponding lines
     del_index.reverse()
@@ -139,18 +165,50 @@ def convert(text):
     # Replace {align} with {align*}
     output = output.replace("{align}", "{align*}")
 
-    # We return the output string
-    return output, metadata
+    # We return the output string, the metadata dictionary and the lists of image and drawing names
+    return output, metadata, image_names, drawing_names
+
+
+def convert_excalidraw(drawing_names, vault_path, attachment_path):
+    # Convert the vault path to a pathlib Path
+    vault_path = Path(vault_path)
+
+    # We search the excalidraws in the vault and copy the json part of the file to the attachment path
+    for i in drawing_names:
+        for j in vault_path.rglob(i):
+            new_file_name = j.name.split(".")[0] + ".excalidraw"
+            with open(j) as file:
+                content = file.read()
+                content = content.split("```json")[1].split("```")[0]
+                with open(attachment_path / new_file_name, "w") as file:
+                    file.write(content)
+
+            # We convert the excalidraws to .svg files using excalidraw_export
+            username = os.getenv("username")
+            subprocess.check_call(
+                [rf"C:\Users\{username}\AppData\Roaming\npm\excalidraw_export.cmd", new_file_name], cwd=attachment_path
+            )
+            # We convert the .svg files to .png files using inkscape
+            subprocess.check_call(
+                [r"C:\Program Files\Inkscape\bin\inkscape.exe", "--export-type=png", new_file_name + ".svg"],
+                cwd=attachment_path,
+            )
+
+            # We delete the .svg files
+            os.remove(attachment_path / (new_file_name + ".svg"))
 
 
 def convert_MD2TeX(string_input, behavior):
-    in_path = string_input["in_path"]
-    out_path = string_input["out_path"]
+    in_path = Path(string_input["in_path"])
+    out_path = Path(string_input["out_path"])
     file_name = string_input["file_name"]
     author = string_input["author"]
-    template_path = string_input["template_path"]
-    attachment_path = string_input["attachment_path"]
+    template_path = Path(string_input["template_path"])
     date = string_input["date"]
+    vault_path = Path(string_input["vault_path"])
+
+    # We create a temporary directory and set it as the attachment path
+    attachment_path = Path(tempfile.mkdtemp())
 
     # Creates a pathlib Path out of the output string input.
     out_path = Path(out_path)
@@ -172,7 +230,36 @@ def convert_MD2TeX(string_input, behavior):
         os.makedirs(output_path)
 
     # Runs the content from the MD file through the convert function to convert the syntax to a .tex compatible one
-    text, metadata = convert(MDtext)
+    text, metadata, image_names, drawing_names = convert(MDtext)
+
+    # We search the images in the vault and copy them to the attachment path
+    for i in image_names:
+        for j in vault_path.rglob(i):
+            shutil.copy(j, attachment_path)
+
+    # We search the excalidraws in the vault and copy the json part of the file to the attachment path
+    for i in drawing_names:
+        for j in vault_path.rglob(i):
+            new_file_name = j.name.split(".")[0] + ".excalidraw"
+            with open(j) as file:
+                content = file.read()
+                content = content.split("```json")[1].split("```")[0]
+                with open(attachment_path / new_file_name, "w") as file:
+                    file.write(content)
+
+            # We convert the excalidraws to .svg files using excalidraw_export
+            username = os.getenv("username")
+            subprocess.check_call(
+                [rf"C:\Users\{username}\AppData\Roaming\npm\excalidraw_export.cmd", new_file_name], cwd=attachment_path
+            )
+            # We convert the .svg files to .png files using inkscape
+            subprocess.check_call(
+                [r"C:\Program Files\Inkscape\bin\inkscape.exe", "--export-type=png", new_file_name + ".svg"],
+                cwd=attachment_path,
+            )
+
+            # We delete the .svg files
+            os.remove(attachment_path / (new_file_name + ".svg"))
 
     # If the metadata dictionary is not empty we override the default values
     if behavior["override_with_metadata"]:
@@ -192,7 +279,7 @@ def convert_MD2TeX(string_input, behavior):
         template_text.replace("CONTENT", text)
         .replace("TITLE", file_name)
         .replace("AUTHOR", author)
-        .replace("ATTACHMENT_PATH", attachment_path)
+        .replace("ATTACHMENT_PATH", (str(attachment_path).replace("\\", "/") + "/"))
         .replace("DATE", date)
     )
 
@@ -200,8 +287,22 @@ def convert_MD2TeX(string_input, behavior):
     with open(file_path, "w") as file:
         file.write(text)
 
+    # If the behavior is set to keep the last attachment files we copy them to the output path
+    # First we clear the attachment folder in the output directory
+    if behavior["store_attachments"]:
+        if os.path.exists(out_path / ".attachments/"):
+            shutil.rmtree(out_path / ".attachments/")
+        os.mkdir(out_path / ".attachments/")
 
-def bake_TeX(string_input):
+        # Then we copy the files from the temporary attachment folder to the output attachment folder
+        for i in os.listdir(attachment_path):
+            shutil.copy(attachment_path / i, out_path / ".attachments/")
+
+    # We return the path to the temporary folder
+    return attachment_path, drawing_names
+
+
+def bake_TeX(string_input, temp_path):
     out_path = string_input["out_path"]
     file_name = string_input["file_name"]
 
@@ -231,7 +332,10 @@ def bake_TeX(string_input):
 
         # Delete the temporary folder and its contents
         shutil.rmtree(temp_dir)
+        shutil.rmtree(temp_path)
 
         print(f"Temporary folder '{temp_dir}' has been deleted.")
     except Exception as e:
         print(f"An error occurred: {e}")
+        shutil.rmtree(temp_dir)
+        shutil.rmtree(temp_path)
