@@ -37,7 +37,8 @@ These things don't work right now. Either because of some syntax conflict or jus
 npm install -g excalidraw_export
 ```
 
-<br>
+<br><br>
+
 - Download the latest release [here](https://github.com/Itron-al-Lenn/Obsidian2LaTeX/releases)
 - Unpack the binary in the directory you want and run it.
 - If you want to change the standard inputs you can change the config file you find in:
