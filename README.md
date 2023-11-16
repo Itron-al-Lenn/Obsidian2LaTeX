@@ -24,7 +24,7 @@ These things don't work right now. Either because of some syntax conflict or jus
 
 - TeX Live
 - Inkscape (if you use Excalidraw)
-- Excalidraw_export
+- Excalidraw_export (if you use Excalidraw)
 
 ## How to use
 
