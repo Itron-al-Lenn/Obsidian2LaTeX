@@ -12,12 +12,11 @@ It currently supports the following elements:
 - The mhchem \pu (will be converted to \si)Header and first-level subheaders (# and ##)
 - bold and italic text (italic with the notation using _)
 - Images
+- Excalidraw
 
 ## What _doesn't_ work (right now)
 
 These things don't work right now. Either because of some syntax conflict or just because I didn't have time (or saw the need) to add them by now.
-
-- Excalidraw
 - Tables
 - All math environments that are mutually exclusive to align or \[ (could probably easily be added by reusing the code for align)
 
