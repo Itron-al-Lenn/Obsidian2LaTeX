@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import time
 from pathlib import Path
 
@@ -242,20 +243,24 @@ class MainWindow(QMainWindow):
             # Convert the excalidraw drawings
             convert_excalidraw(drawing_names, str_input["vault_path"], temp_folder)
 
-        bake_TeX(str_input, temp_folder)
+        # If the behavior is set to keep the last attachment files we copy them to the output path
+        # First we clear the attachment folder in the output directory
+        if config["behaviour"]["store_attachments"]:
+            if os.path.exists(Path(str_input["out_path"]) / ".attachments/"):
+                shutil.rmtree(Path(str_input["out_path"]) / ".attachments/")
+            os.mkdir(Path(str_input["out_path"]) / ".attachments/")
+
+            # Then we copy the files from the temporary attachment folder to the output attachment folder
+            for i in os.listdir(temp_folder):
+                shutil.copy(temp_folder / i, Path(str_input["out_path"]) / ".attachments/")
+
+            bake_TeX(str_input, temp_folder)
 
         # Wait for a moment
         time.sleep(0.5)
 
         # Show the convert button
         self.button.show()
-
-        # Hide the status messages
-        self.label_status1.hide()
-        self.label_status2.hide()
-        self.label_status3.hide()
-        self.label_status4.hide()
-        self.label_status5.hide()
 
     # Define the input functions for the text fields
     def set_lineedit(self, lbl, text):
