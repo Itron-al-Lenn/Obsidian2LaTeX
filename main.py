@@ -254,7 +254,7 @@ class MainWindow(QMainWindow):
             for i in os.listdir(temp_folder):
                 shutil.copy(temp_folder / i, Path(str_input["out_path"]) / ".attachments/")
 
-            bake_TeX(str_input, temp_folder)
+        bake_TeX(str_input, temp_folder)
 
         # Wait for a moment
         time.sleep(0.5)
