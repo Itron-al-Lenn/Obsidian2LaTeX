@@ -33,19 +33,17 @@ class Lines(list):
         return "\n".join(self)
 
     def is_math(self, index):
-        return self[index].startswith("$$")
+        return self[index].startswith("$$") or self[index].startswith("\\[") or self[index].startswith("\\]")
 
     def is_header(self, index):
-        return self[index].startswith("#") and not self[index].startswith("##")
+        return (self[index].startswith("#") and not self[index].startswith("##")) or self[index].startswith("\\section")
 
     def is_subheader(self, index):
-        return self[index].startswith("##")
+        return self[index].startswith("##") or self[index].startswith("\\subsection")
 
     def is_align(self, index):
         for i in math_environments:
-            if self[index].startswith("$$") and (
-                self[index + 1].startswith("\\begin{" + i + "}") or self[index - 1].startswith("\\end{" + i + "}")
-            ):
+            if self[index].startswith("\\begin{" + i + "}") or self[index].startswith("\\end{" + i + "}"):
                 return True
         else:
             return False
@@ -81,8 +79,11 @@ class Lines(list):
     def is_table_comp_point(self, index):
         return self[index].endswith("-|") or self[index].endswith("- |")
 
+    def is_figure(self, index):
+        return "\\begin{figure}" in self[index] or "\\end{figure}" in self[index]
 
-def convert(text):
+
+def convert(text, behavior):
     # We create a list of the lines in the text
     lines = Lines((text + "\n").split("\n"))
 
@@ -115,35 +116,35 @@ def convert(text):
         # Check if the line is a header
         if lines.is_header(i):
             # If the line is a header we replace the "#" with the corresponding "\section{}"
-            lines[i] = "\\section*{" + lines[i].replace("# ", "") + "}"
+            if behavior["table_of_contents"]:
+                lines[i] = "\\section{" + lines[i].replace("# ", "") + "}"
+            else:
+                lines[i] = "\\section*{" + lines[i].replace("# ", "") + "}"
 
         # Check if the line is a subheader
         elif lines.is_subheader(i):
             # If the line is a subheader we replace the "##" with the corresponding "\subsection{}"
-            lines[i] = "\\subsection*{" + lines[i].replace("## ", "") + "}"
-
-        # Check if the line is an align environment
-        elif lines.is_align(i):
-            # If the line is an align environment we add their index to an list
-            del_index.append(i)
-            if last_was_end:
-                last_was_end = False
-                first_id = i
+            if behavior["table_of_contents"]:
+                lines[i] = "\\subsection{" + lines[i].replace("## ", "") + "}"
             else:
-                last_was_end = True
-                id_pair: tuple = (first_id, i)
-                id_to_check.append(id_pair)
+                lines[i] = "\\subsection*{" + lines[i].replace("## ", "") + "}"
 
         # Check if the line is a math environment
         elif lines.is_math(i):
-            # If the line is a math environment we replace the "$$"
-            # with the corresponding "\\[" and "\\]"
+            # If the line one after or before is a align environment we add their index to an list
+            if lines.is_align(i - 1) or lines.is_align(i + 1):
+                del_index.append(i)
+            else:
+                # If the line is a math environment we replace the "$$"
+                # with the corresponding "\\[" and "\\]"
+                if last_was_end:
+                    lines[i] = "\\[" + lines[i].replace("$$", "")
+                else:
+                    lines[i] = lines[i].replace("$$", "") + "\\]"
             if last_was_end:
-                lines[i] = "\\[" + lines[i].replace("$$", "")
                 last_was_end = False
                 first_id = i
             else:
-                lines[i] = lines[i].replace("$$", "") + "\\]"
                 last_was_end = True
                 id_pair: tuple = (first_id, i)
                 id_to_check.append(id_pair)
@@ -225,6 +226,15 @@ def convert(text):
             if lines[j] == "":
                 del_index.append(j)
 
+    # We replace & with \\& in the lines that are not between the first and last id of the align and math environments
+    for index, i in enumerate(id_to_check):
+        if index == 0:
+            for j in range(0, i[0]):
+                lines[j] = re.sub(r"[^\\]&", r"\\&", lines[j], 0, re.MULTILINE)
+        else:
+            for j in range(id_to_check[index - 1][1], i[0]):
+                lines[j] = re.sub(r"[^\\]&", r"\\&", lines[j], 0, re.MULTILINE)
+
     # We loop through the list of indexes and delete the corresponding lines
     del_index.sort()
     del_index.reverse()
@@ -233,7 +243,21 @@ def convert(text):
 
     # We join the items of lines to a string that will be returned
     output = ""
-    output += str(lines) + "\n"
+    for i in range(len(lines)):
+        if (
+            lines.is_header(i)
+            or lines.is_subheader(i)
+            or lines.is_align(i)
+            or lines.is_math(i)
+            or lines.is_align(i)
+            or lines.is_figure(i)
+        ):
+            output += lines[i] + "\n"
+        else:
+            if lines[i] == "" and (lines.is_header(i - 1) or lines.is_subheader(i - 1)):
+                del_index.append(i)
+            else:
+                output += lines[i] + " \\\\ \n"
 
     # We get all ** in the text and replace them either with \\textbf{ or } depending on if it is the first or second
     while "**" in output:
@@ -311,6 +335,12 @@ def convert_MD2TeX(string_input, behavior):
     with open(template_path) as template:
         template_text = template.read()
 
+    # If the tempalte conatins an uncommented line which creates a table of contents we set the behavior to true
+    if not re.search(r"\%[\s]*\\tableofcontents", template_text) and re.search(r"\\tableofcontents", template_text):
+        behavior["table_of_contents"] = True
+    else:
+        behavior["table_of_contents"] = False
+
     # Gets the content of the input MD file and stores it in the MDtext variable
     with open(in_path) as MD:
         MDtext = MD.read()
@@ -320,7 +350,7 @@ def convert_MD2TeX(string_input, behavior):
         os.makedirs(output_path)
 
     # Runs the content from the MD file through the convert function to convert the syntax to a .tex compatible one
-    text, metadata, image_names, drawing_names = convert(MDtext)
+    text, metadata, image_names, drawing_names = convert(MDtext, behavior)
 
     # We search the images in the vault and copy them to the attachment path
     for i in image_names:
