@@ -12,6 +12,19 @@ image_formats = [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".eps", ".pdf"]
 # We define a list of metadata that we want to use
 important_metadata = ["title", "author", "date"]
 
+# We define conditions to check if a line is a non standard math environment
+# We define a list of math environments that are supported by LaTeX
+math_environments = [
+    "align",
+    "align*",
+    "equation",
+    "equation*",
+    "gather",
+    "gather*",
+    "multline",
+    "multline*",
+]
+
 
 # We define a list subclass called lines that has a method to convert the list to a string
 # It also has a method to get an boolean value if the specific item in the list starts with "$$"
@@ -20,20 +33,23 @@ class Lines(list):
         return "\n".join(self)
 
     def is_math(self, index):
-        return self[index].startswith("$$") and not (
-            self[index + 1].startswith("\\begin{align}") or self[index - 1].startswith("\\end{align}")
-        )
+        return self[index].startswith("$$")
 
     def is_header(self, index):
         return self[index].startswith("#") and not self[index].startswith("##")
 
     def is_subheader(self, index):
-        return self[index].startswith("##")
+        return self[index].startswith("##") and not self[index].startswith("###")
+
+    def is_subsubheader(self, index):
+        return self[index].startswith("###")
 
     def is_align(self, index):
-        return self[index].startswith("$$") and (
-            self[index + 1].startswith("\\begin{align}") or self[index - 1].startswith("\\end{align}")
-        )
+        for i in math_environments:
+            if self[index].startswith("\\begin{" + i + "}") or self[index].startswith("\\end{" + i + "}"):
+                return True
+        else:
+            return False
 
     def has_metadata(self):
         if self[0].startswith("---"):
@@ -60,10 +76,16 @@ class Lines(list):
     def end_json(self, index):
         return self[index].startswith("```")
 
+    def is_chem(self, index):
+        return "\\ce" in self[index]
 
-def convert(text):
+    def is_table_comp_point(self, index):
+        return re.search(r"-+[: ]*\|", self[index])
+
+
+def convert(text, behavior):
     # We create a list of the lines in the text
-    lines = Lines(text.split("\n"))
+    lines = Lines((text + "\n").split("\n"))
 
     # We create a dictionary for the metadata
     metadata = {}
@@ -86,34 +108,100 @@ def convert(text):
     image_names = []
     drawing_names = []
     del_index = []
+    id_to_check: list = []
+    first_id = 0
 
     # We loop through the lines
     for i in range(len(lines)):
         # Check if the line is a header
         if lines.is_header(i):
             # If the line is a header we replace the "#" with the corresponding "\section{}"
-            lines[i] = "\\section*{" + lines[i].replace("# ", "") + "}"
+            if behavior["table_of_contents"]:
+                lines[i] = "\\section{" + lines[i].replace("# ", "") + "}"
+            else:
+                lines[i] = "\\section*{" + lines[i].replace("# ", "") + "}"
 
         # Check if the line is a subheader
         elif lines.is_subheader(i):
             # If the line is a subheader we replace the "##" with the corresponding "\subsection{}"
-            lines[i] = "\\subsection*{" + lines[i].replace("## ", "") + "}"
+            if behavior["table_of_contents"]:
+                lines[i] = "\\subsection{" + lines[i].replace("## ", "") + "}"
+            else:
+                lines[i] = "\\subsection*{" + lines[i].replace("## ", "") + "}"
+
+        # Check if the line is a subsubheader
+        elif lines.is_subsubheader(i):
+            # If the line is a subsubheader we replace the "###" with the corresponding "\subsubsection{}"
+            if behavior["table_of_contents"]:
+                lines[i] = "\\subsubsection{" + lines[i].replace("### ", "") + "}"
+            else:
+                lines[i] = "\\subsubsection*{" + lines[i].replace("### ", "") + "}"
 
         # Check if the line is a math environment
         elif lines.is_math(i):
-            # If the line is a math environment we replace the "$$"
-            # with the corresponding "\begin{align}" and "\end{align}"
-            if last_was_end:
-                lines[i] = "\\[" + lines[i].replace("$$", "")
-                last_was_end = False
+            # If the line one after or before is a align environment we add their index to an list
+            if lines.is_align(i - 1) or lines.is_align(i + 1):
+                del_index.append(i)
             else:
-                lines[i] = lines[i].replace("$$", "") + "\\]"
+                # If the line is a math environment we replace the "$$"
+                # with the corresponding "\\[" and "\\]"
+                if last_was_end:
+                    lines[i] = "\\[" + lines[i].replace("$$", "")
+                else:
+                    lines[i] = lines[i].replace("$$", "") + "\\]"
+            if last_was_end:
+                last_was_end = False
+                first_id = i
+            else:
                 last_was_end = True
+                id_pair: tuple = (first_id, i)
+                id_to_check.append(id_pair)
 
-        # Check if the line is an align environment
-        elif lines.is_align(i):
-            # If the line is an align environment we add their index to an list
-            del_index.append(i)
+        elif lines.is_table_comp_point(i):
+            # We get the number of columns
+            columns = lines[i].count("|") - 1
+            # We get the number of rows
+            rows = 0
+            for j in range(i, len(lines)):
+                if lines[j].endswith("|"):
+                    rows += 1
+                else:
+                    break
+            # We create a string with the correct number of columns
+            columns_string = ""
+            for j in range(columns):
+                columns_string += "c|"
+            # We delete the last "|" in the string
+            columns_string = columns_string[:-1]
+            # We get the content of the table
+            row_content = []
+            for j in range(i - 1, i + rows):
+                row_content.append(lines[j].split("|")[1:-1])
+            # We replace multipels of whitespace in the row_content with a single whitespace
+            for key in range(rows + 1):
+                for subkey, k in enumerate(row_content[key]):
+                    new_content = re.sub(r"[\s]{2,}", " ", k, 0, re.MULTILINE)
+                    row_content[key][subkey] = new_content
+
+            # We create the string for the table
+            lines[i - 1] = "\\begin{table}[H]\n\\centering\n\\begin{tabular}{" + columns_string + "}\n"
+            new_content = ""
+            for j in row_content[0]:
+                new_content += j + " & "
+            else:
+                lines[i] = new_content[:-3] + " \\\\ \n\\hline"
+
+            for j in range(2, rows + 1):
+                new_content = ""
+                for k in row_content[j]:
+                    new_content += k + " & "
+                else:
+                    lines[i + j - 1] = new_content[:-3] + " \\\\ \n"
+
+            lines[i + rows - 1] += "\n\\end{tabular}\n\\end{table}"
+
+        elif re.search(r"[\w.\$]+[\s]*$", lines[i]):
+            lines[i] = lines[i] + " \\\\"
 
         # These before were mutually exclusive, this is why we used elif
 
@@ -131,7 +219,7 @@ def convert(text):
         # Check if the line is an excalidraw
         if lines.has_excalidraw(i):
             # We get the names of the drawings and remove everything before the last "/" and after the file extension
-            drawing_names.append(lines[i].split("[[")[1].split("/")[-1].split(".")[0] + ".excalidraw.md")
+            drawing_names.append(lines[i].split("[[")[1].split("/")[-1].split(".excalidraw")[0] + ".excalidraw.md")
 
             # If the line is an excalidraw we replace the "![" with the corresponding "\\includegraphics{}"
             lines[i] = re.sub(
@@ -139,14 +227,35 @@ def convert(text):
             )
             lines[i] = re.sub(r"\]\]", ".svg.png}\\n\\\\centering\\n\\\\end{figure}", lines[i], 1)
 
+        if lines.is_chem(i):
+            lines[i] = lines[i].replace("->", " -> ")
+
+    # We ckeck if between the first and last id of the align and math environments are an empty line
+    # If there is an empty line we add its index to the del_index list
+    for i in id_to_check:
+        for j in range(i[0], i[1]):
+            if lines[j] == "":
+                del_index.append(j)
+
+    # We replace & with \\& in the lines that are not between the first and last id of the align and math environments
+    for index, i in enumerate(id_to_check):
+        if index == 0:
+            for j in range(0, i[0]):
+                lines[j] = re.sub(r"[^\\]&", r"\\&", lines[j], 0, re.MULTILINE)
+        else:
+            for j in range(id_to_check[index - 1][1], i[0]):
+                lines[j] = re.sub(r"[^\\]&", r"\\&", lines[j], 0, re.MULTILINE)
+
     # We loop through the list of indexes and delete the corresponding lines
+    del_index.sort()
     del_index.reverse()
     for i in del_index:
         del lines[i]
 
     # We join the items of lines to a string that will be returned
     output = ""
-    output += str(lines) + "\n"
+    for i in lines:
+        output += i + "\n"
 
     # We get all ** in the text and replace them either with \\textbf{ or } depending on if it is the first or second
     while "**" in output:
@@ -158,6 +267,9 @@ def convert(text):
     while "_ " in output:
         output = re.sub(r"_([^{])", r"\\textit{\1", output, 1)
         output = re.sub("_ ", "} ", output, 1)
+
+    # Replace parameter characters with the normal ones
+    output = output.replace("≤", "<=").replace("#", "\\#").replace("≥", ">=").replace("≠", "!=").replace("→", "->")
 
     # Replaces \pu with the LaTeX compatible \si
     output = output.replace("\\pu", "\\si")
@@ -176,7 +288,7 @@ def convert_excalidraw(drawing_names, vault_path, attachment_path):
     # We search the excalidraws in the vault and copy the json part of the file to the attachment path
     for i in drawing_names:
         for j in vault_path.rglob(i):
-            new_file_name = j.name.split(".")[0] + ".excalidraw"
+            new_file_name = j.name.split(".md")[0]
             with open(j) as file:
                 content = file.read()
                 content = content.split("```json")[1].split("```")[0]
@@ -221,6 +333,12 @@ def convert_MD2TeX(string_input, behavior):
     with open(template_path) as template:
         template_text = template.read()
 
+    # If the tempalte conatins an uncommented line which creates a table of contents we set the behavior to true
+    if not re.search(r"\%[\s]*\\tableofcontents", template_text) and re.search(r"\\tableofcontents", template_text):
+        behavior["table_of_contents"] = True
+    else:
+        behavior["table_of_contents"] = False
+
     # Gets the content of the input MD file and stores it in the MDtext variable
     with open(in_path) as MD:
         MDtext = MD.read()
@@ -230,36 +348,12 @@ def convert_MD2TeX(string_input, behavior):
         os.makedirs(output_path)
 
     # Runs the content from the MD file through the convert function to convert the syntax to a .tex compatible one
-    text, metadata, image_names, drawing_names = convert(MDtext)
+    text, metadata, image_names, drawing_names = convert(MDtext, behavior)
 
     # We search the images in the vault and copy them to the attachment path
     for i in image_names:
         for j in vault_path.rglob(i):
             shutil.copy(j, attachment_path)
-
-    # We search the excalidraws in the vault and copy the json part of the file to the attachment path
-    for i in drawing_names:
-        for j in vault_path.rglob(i):
-            new_file_name = j.name.split(".")[0] + ".excalidraw"
-            with open(j) as file:
-                content = file.read()
-                content = content.split("```json")[1].split("```")[0]
-                with open(attachment_path / new_file_name, "w") as file:
-                    file.write(content)
-
-            # We convert the excalidraws to .svg files using excalidraw_export
-            username = os.getenv("username")
-            subprocess.check_call(
-                [rf"C:\Users\{username}\AppData\Roaming\npm\excalidraw_export.cmd", new_file_name], cwd=attachment_path
-            )
-            # We convert the .svg files to .png files using inkscape
-            subprocess.check_call(
-                [r"C:\Program Files\Inkscape\bin\inkscape.exe", "--export-type=png", new_file_name + ".svg"],
-                cwd=attachment_path,
-            )
-
-            # We delete the .svg files
-            os.remove(attachment_path / (new_file_name + ".svg"))
 
     # If the metadata dictionary is not empty we override the default values
     if behavior["override_with_metadata"]:
@@ -287,17 +381,6 @@ def convert_MD2TeX(string_input, behavior):
     with open(file_path, "w") as file:
         file.write(text)
 
-    # If the behavior is set to keep the last attachment files we copy them to the output path
-    # First we clear the attachment folder in the output directory
-    if behavior["store_attachments"]:
-        if os.path.exists(out_path / ".attachments/"):
-            shutil.rmtree(out_path / ".attachments/")
-        os.mkdir(out_path / ".attachments/")
-
-        # Then we copy the files from the temporary attachment folder to the output attachment folder
-        for i in os.listdir(attachment_path):
-            shutil.copy(attachment_path / i, out_path / ".attachments/")
-
     # We return the path to the temporary folder
     return attachment_path, drawing_names
 
@@ -320,7 +403,7 @@ def bake_TeX(string_input, temp_path):
 
         # Run pdflatex with the file in the temporary directory
         # and make sure that pdflatex is finished before the program continuous
-        subprocess.check_call(["pdflatex", str(temp_dir) + "/" + file_name + ".tex"], cwd=temp_dir)
+        subprocess.check_call(["latexmk", "-pdf", str(temp_dir) + "/" + file_name + ".tex"], cwd=temp_dir)
         time.sleep(1)
 
         # Create the output directory for the .pdf if it doesn't exists

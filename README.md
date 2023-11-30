@@ -1,7 +1,7 @@
 # Obsidian2LaTeX Converter
 
 I am a STEM student who uses obsidian.md for her lecture notes. Because I am deeply unsatisfied with the integrated pdf conversion I decided to write this little program.
-It uses the similarity of the MathJax syntax to LaTeX to convert the .md file to a .tex file and convert the .tex file to a stylish-looking pdf using pdflatex.
+It uses the similarity of the MathJax syntax to LaTeX to convert the .md file to a .tex file and convert the .tex file to a stylish-looking pdf using MiKTeX.
 
 ## What works
 
@@ -17,18 +17,19 @@ It currently supports the following elements:
 ## What _doesn't_ work (right now)
 
 These things don't work right now. Either because of some syntax conflict or just because I didn't have time (or saw the need) to add them by now.
+
 - Tables
 - All math environments that are mutually exclusive to align or \[ (could probably easily be added by reusing the code for align)
 
 ## Requirements
 
-- TeX Live
+- MiKTeX and latexmk
 - Inkscape (if you use Excalidraw)
 - Excalidraw_export (if you use Excalidraw)
 
 ## How to use
 
-- First, install TeX Live if you don't have it already installed. You can find a guide on how to [here](https://tug.org/texlive/acquire-netinstall.html)](https://tug.org/texlive/acquire-netinstall.html).
+- First, install MiKTeX if you don't have it already installed. You can find the installer on their [website](https://miktex.org/download). Then make sure in the MiKTeX console that you have latexmk installed.
 - If you want to use Excalidraw also install Inkscape. You find the download [here](https://inkscape.org/release/)
 - For Excalidraw support you too need excalidraw_export. You can install it using:
 
