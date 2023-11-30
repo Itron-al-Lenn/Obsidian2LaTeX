@@ -33,13 +33,16 @@ class Lines(list):
         return "\n".join(self)
 
     def is_math(self, index):
-        return self[index].startswith("$$") or self[index].startswith("\\[") or self[index].startswith("\\]")
+        return self[index].startswith("$$")
 
     def is_header(self, index):
-        return (self[index].startswith("#") and not self[index].startswith("##")) or self[index].startswith("\\section")
+        return self[index].startswith("#") and not self[index].startswith("##")
 
     def is_subheader(self, index):
-        return self[index].startswith("##") or self[index].startswith("\\subsection")
+        return self[index].startswith("##") and not self[index].startswith("###")
+
+    def is_subsubheader(self, index):
+        return self[index].startswith("###")
 
     def is_align(self, index):
         for i in math_environments:
@@ -77,10 +80,7 @@ class Lines(list):
         return "\\ce" in self[index]
 
     def is_table_comp_point(self, index):
-        return self[index].endswith("-|") or self[index].endswith("- |")
-
-    def is_figure(self, index):
-        return "\\begin{figure}" in self[index] or "\\end{figure}" in self[index]
+        return re.search(r"-+[: ]*\|", self[index])
 
 
 def convert(text, behavior):
@@ -128,6 +128,14 @@ def convert(text, behavior):
                 lines[i] = "\\subsection{" + lines[i].replace("## ", "") + "}"
             else:
                 lines[i] = "\\subsection*{" + lines[i].replace("## ", "") + "}"
+
+        # Check if the line is a subsubheader
+        elif lines.is_subsubheader(i):
+            # If the line is a subsubheader we replace the "###" with the corresponding "\subsubsection{}"
+            if behavior["table_of_contents"]:
+                lines[i] = "\\subsubsection{" + lines[i].replace("### ", "") + "}"
+            else:
+                lines[i] = "\\subsubsection*{" + lines[i].replace("### ", "") + "}"
 
         # Check if the line is a math environment
         elif lines.is_math(i):
@@ -192,6 +200,9 @@ def convert(text, behavior):
 
             lines[i + rows - 1] += "\n\\end{tabular}\n\\end{table}"
 
+        elif re.search(r"[\w.\$]+[\s]*$", lines[i]):
+            lines[i] = lines[i] + " \\\\"
+
         # These before were mutually exclusive, this is why we used elif
 
         # Check if the line is an image
@@ -243,21 +254,8 @@ def convert(text, behavior):
 
     # We join the items of lines to a string that will be returned
     output = ""
-    for i in range(len(lines)):
-        if (
-            lines.is_header(i)
-            or lines.is_subheader(i)
-            or lines.is_align(i)
-            or lines.is_math(i)
-            or lines.is_align(i)
-            or lines.is_figure(i)
-        ):
-            output += lines[i] + "\n"
-        else:
-            if lines[i] == "" and (lines.is_header(i - 1) or lines.is_subheader(i - 1)):
-                del_index.append(i)
-            else:
-                output += lines[i] + " \\\\ \n"
+    for i in lines:
+        output += i + "\n"
 
     # We get all ** in the text and replace them either with \\textbf{ or } depending on if it is the first or second
     while "**" in output:
@@ -405,7 +403,7 @@ def bake_TeX(string_input, temp_path):
 
         # Run pdflatex with the file in the temporary directory
         # and make sure that pdflatex is finished before the program continuous
-        subprocess.check_call(["pdflatex", str(temp_dir) + "/" + file_name + ".tex"], cwd=temp_dir)
+        subprocess.check_call(["latexmk", "-pdf", str(temp_dir) + "/" + file_name + ".tex"], cwd=temp_dir)
         time.sleep(1)
 
         # Create the output directory for the .pdf if it doesn't exists
