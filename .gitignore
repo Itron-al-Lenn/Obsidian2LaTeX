@@ -76,3 +76,9 @@ CMakeLists.txt.user*
 # -----------
 *.coverage
 output
+
+# PyInstaller
+# -----------
+*.spec
+build
+dist

@@ -719,18 +719,19 @@ class SettingsWindow(QWidget):
 
 
 if __name__ == "__main__":
-    # If no config file exists, create one and write the content of the default config file into it
+    # Get the path to the config preset file
+    preset_path = Path(__file__).resolve().with_name("config_preset.toml")
+
+    # If no config file exists, create an empty config file
     if not os.path.exists(config_dir + "/config.toml"):
-        with open(config_dir + "/config.toml", "w") as config_file:
-            with open("config_preset.toml") as preset_config_file:
-                config_file.write(preset_config_file.read())
+        shutil.copy(preset_path, config_dir + "/config.toml")
 
     # Read the config file
     with open(config_dir + "/config.toml") as config_file:
         config = tomlkit.parse(config_file.read())
 
     # If the config file has not all keys, add the missing keys
-    with open("config_preset.toml") as preset_config_file:
+    with open(preset_path) as preset_config_file:
         preset_config = tomlkit.parse(preset_config_file.read())
         for key in preset_config.keys():
             if key not in config.keys():
