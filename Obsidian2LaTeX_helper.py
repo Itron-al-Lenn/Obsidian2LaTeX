@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 # We define a list of image formats that are supported by LaTeX
-image_formats = [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".eps", ".pdf"]
+image_formats = [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".eps"]
 
 # We define a list of metadata that we want to use
 important_metadata = ["title", "author", "date"]
