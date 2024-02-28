@@ -9,17 +9,19 @@ It currently supports the following elements:
 
 - Math and align environment
 - All MathJax syntax that is identical to LaTeX
-- The mhchem \pu (will be converted to \si)Header and first-level subheaders (# and ##)
+- The mhchem \pu (will be converted to \si) Header and first-level subheaders (# and ##)
 - bold and italic text (italic with the notation using _)
 - Images
 - Excalidraw
+- Tables
 
 ## What _doesn't_ work (right now)
 
 These things don't work right now. Either because of some syntax conflict or just because I didn't have time (or saw the need) to add them by now.
 
-- Tables
 - All math environments that are mutually exclusive to align or \[ (could probably easily be added by reusing the code for align)
+- Links
+- Most things added by community plugins (for example Dataview ...)
 
 ## Requirements
 
@@ -46,13 +48,3 @@ npm install -g excalidraw_export
 ```path
 C:\Users\<username>\AppData\Local\Itron al Lenn\Obsidian2LaTeX
 ```
-
-## ToDo's
-
-- [x] Convert MD to TeX to pdf
-- [X] change content from MD to reflect the syntax of LaTeX
-- [X] Make an interface to pick the MD file you want to convert
-- [X] Add the option to choose a custom LaTeX template to the interface
-- [X] Add support for italic
-- [X] Add support for images
-- [X] Add support for .excalidraw
