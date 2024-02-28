@@ -6,5 +6,5 @@ dist
 
 # Pyproject
 # ---------
-Pyproject.toml
+pyproject.toml
 __pycache__
