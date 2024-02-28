@@ -300,12 +300,15 @@ class MainWindow(QMainWindow):
         # Check if the input field contains an image
         # If it does, enable the vault input field
         if lbl == "in_path":
+            print("Image Test")
             input_file = Path(str_input["in_path"])
             input_text = open(input_file).read()
+            print("File read")
+            has_image = False
             if (
                 os.path.exists(input_file)
                 and Path(str_input["in_path"]).suffix == ".md"
-                and re.search(r"(\.pdf|\.png|\.jpg|\.jpeg|\.gif)(|.*)*\]\]", input_text)
+                and re.search(r"(\.png|\.jpg|\.jpeg|\.gif)(|.*)*\]\]", input_text)
             ):
                 has_image = True
                 print("has image")
@@ -315,6 +318,7 @@ class MainWindow(QMainWindow):
                 print("no image")
 
             # Check if the input file contains an excalidraw drawing
+            print("Excalidraw Test")
             print(re.search(r"!\[\[.*\.excalidraw(|.*)*\]\]", input_text))
             if (
                 os.path.exists(input_file)
