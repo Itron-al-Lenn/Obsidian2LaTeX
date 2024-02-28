@@ -4,7 +4,4 @@
 build
 dist
 
-# Pyproject
-# ---------
-pyproject.toml
 __pycache__
