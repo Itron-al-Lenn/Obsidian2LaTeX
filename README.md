@@ -13,12 +13,12 @@ It currently supports the following elements:
 - bold and italic text (italic with the notation using _)
 - Images
 - Excalidraw
+- Tables
 
 ## What _doesn't_ work (right now)
 
 These things don't work right now. Either because of some syntax conflict or just because I didn't have time (or saw the need) to add them by now.
 
-- Tables
 - All math environments that are mutually exclusive to align or \[ (could probably easily be added by reusing the code for align)
 - Links
 
