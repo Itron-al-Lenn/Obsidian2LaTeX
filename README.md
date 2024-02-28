@@ -21,6 +21,7 @@ These things don't work right now. Either because of some syntax conflict or jus
 
 - All math environments that are mutually exclusive to align or \[ (could probably easily be added by reusing the code for align)
 - Links
+- Most things added by community plugins (for example Dataview ...)
 
 ## Requirements
 
